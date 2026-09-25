@@ -1,29 +1,24 @@
 // js/game.js
-// Etap 1 — grywalny szkic. Cała logika gry w jednym module, bez frameworków.
-// Współrzędne: scena ma stały rozmiar logiczny 1366×1024, skalowana CSS transform.
-// Wszystkie książki (na wózku i na regałach) są jednym zbiorem elementów w #books-layer,
-// pozycjonowanych absolutnie w układzie logicznym sceny — to upraszcza matematykę przeciągania.
+// Etap 1b — orchestrator: stan gry i zapis (localStorage, klucz biblioteka.v2),
+// skalowanie sceny, pasek górny (porządek % + mini-mapa + atrament + czary),
+// modale (karta książki, menu, potwierdzenie restartu, ekran końcowy), czas gry.
+// Cała reszta (sala, przeciąganie, kurz, pajęczyny, koszyk, kryjówki, regały)
+// mieszka w js/world.js — ten plik tylko go inicjuje i reaguje na jego zmiany.
 
-import { EPOCHS, EPOCH_BY_ID, BOOKS } from "./books.js";
-import { unlockAudio, playPlaceGood, playMistake, playShelfComplete } from "./sound.js";
+import { EPOCH_BY_ID, GENRE_BY_ID, GENRE_ICONS, BOOKS } from "./books.js";
+import { LAYOUT, WORLD_W } from "./layout.js";
+import { initWorld, computeStats } from "./world.js";
+import { unlockAudio } from "./sound.js";
+import { clamp, shadeColor, brightnessVariant, formatTime } from "./util.js";
 
 const LOGICAL_W = 1366;
 const LOGICAL_H = 1024;
-const STORAGE_KEY = "biblioteka.v1";
-const SLOTS_PER_SHELF = 6;
-const DRAG_THRESHOLD = 8; // px w jednostkach ekranu (przed przeliczeniem skali)
-const TOTAL_BOOKS = BOOKS.length;
-
-const BOOK_COVER_W = 72;
-const BOOK_COVER_H = 100;
-const BOOK_SPINE_W = 46;
-const BOOK_SPINE_H = 148;
-
-const CART_COLS = 15;
-const CART_ROWS = 2;
+const STORAGE_KEY = "biblioteka.v2";
+const WORLD_VIEW_W = 1366;
+const MAX_CAMX = Math.max(0, WORLD_W - WORLD_VIEW_W);
 
 const SPELL_INFO = {
-  wglad: "Każda książka na wózku dostanie znak swojego regału i zaświeci jego kolorem — pomaga rozpoznać trudne tytuły (20 sekund).",
+  wglad: "Każda książka w sali dostanie znak swojego regału i zaświeci jego kolorem — pomaga rozpoznać trudne tytuły (20 sekund).",
   przywolanie: "Wszystkie tomy tej samej serii (albo książki tego samego autora) zlecą się w jeden stos, który przeniesiesz jednym ruchem.",
   skrzat: "Skrzat biblioteczny sam odłoży kilka książek, przyspieszając porządkowanie (30 sekund).",
 };
@@ -32,17 +27,48 @@ const SPELL_INFO = {
 // Stan gry i zapis
 // ---------------------------------------------------------------------------
 
+function defaultHideoutsOpened() {
+  return Object.fromEntries(LAYOUT.hideouts.map((h) => [h.id, false]));
+}
+
+function defaultBooksState() {
+  const out = {};
+  for (const b of BOOKS) out[b.id] = { where: "world", basketSlot: null, shelfSlot: null };
+  return out;
+}
+
 function defaultState() {
   return {
-    version: 1,
+    version: 2,
     seed: Math.floor(Math.random() * 1_000_000_000),
-    placed: {},
+    books: defaultBooksState(),
+    dustCleared: [],
+    cobwebsCleared: [],
+    pagesFiled: [],
+    hideoutsOpened: defaultHideoutsOpened(),
     ink: 0,
     mistakes: 0,
     startedAt: Date.now(),
     playMs: 0,
     completedShelves: [],
+    camX: 0,
   };
+}
+
+function sanitizeBooksState(raw) {
+  const out = defaultBooksState();
+  if (!raw || typeof raw !== "object") return out;
+  for (const b of BOOKS) {
+    const rec = raw[b.id];
+    if (!rec || typeof rec !== "object") continue;
+    const where = ["world", "basket", "shelf"].includes(rec.where) ? rec.where : "world";
+    out[b.id] = {
+      where,
+      basketSlot: Number.isInteger(rec.basketSlot) ? rec.basketSlot : null,
+      shelfSlot: Number.isInteger(rec.shelfSlot) ? rec.shelfSlot : null,
+    };
+  }
+  return out;
 }
 
 function loadState() {
@@ -50,16 +76,22 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
-    if (!parsed || parsed.version !== 1) return defaultState();
+    if (!parsed || parsed.version !== 2) return defaultState();
+    const fallback = defaultState();
     return {
-      version: 1,
-      seed: Number.isFinite(parsed.seed) ? parsed.seed : defaultState().seed,
-      placed: parsed.placed && typeof parsed.placed === "object" ? parsed.placed : {},
+      version: 2,
+      seed: Number.isFinite(parsed.seed) ? parsed.seed : fallback.seed,
+      books: sanitizeBooksState(parsed.books),
+      dustCleared: Array.isArray(parsed.dustCleared) ? parsed.dustCleared : [],
+      cobwebsCleared: Array.isArray(parsed.cobwebsCleared) ? parsed.cobwebsCleared : [],
+      pagesFiled: Array.isArray(parsed.pagesFiled) ? parsed.pagesFiled : [],
+      hideoutsOpened: { ...fallback.hideoutsOpened, ...(parsed.hideoutsOpened || {}) },
       ink: clamp(Number(parsed.ink) || 0, 0, 20),
       mistakes: Number(parsed.mistakes) || 0,
       startedAt: Number(parsed.startedAt) || Date.now(),
       playMs: Number(parsed.playMs) || 0,
       completedShelves: Array.isArray(parsed.completedShelves) ? parsed.completedShelves : [],
+      camX: Number.isFinite(parsed.camX) ? clamp(parsed.camX, 0, MAX_CAMX) : 0,
     };
   } catch (err) {
     console.warn("Nie udało się wczytać zapisu — zaczynam od nowa.", err);
@@ -76,116 +108,38 @@ function saveState() {
 }
 
 let state = defaultState();
-
-// ---------------------------------------------------------------------------
-// Drobne narzędzia: PRNG, hash, kolory
-// ---------------------------------------------------------------------------
-
-function clamp(v, lo, hi) {
-  return Math.min(hi, Math.max(lo, v));
-}
-
-/** Deterministyczny generator liczb pseudolosowych (mulberry32). */
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** Prosty hash tekstu (djb2), zawsze ten sam wynik dla tego samego napisu. */
-function hashString(str) {
-  let h = 5381;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) + h + str.charCodeAt(i)) | 0;
-  }
-  return h >>> 0;
-}
-
-function seededShuffle(arr, rng) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-/** Deterministyczna wariacja jasności okładki, zależna wyłącznie od id książki. */
-function brightnessVariant(id) {
-  return (hashString(id) % 41) - 20; // -20..20
-}
-
-/** Deterministyczny kąt obrotu okładki na wózku, zależny od id książki. */
-function rotationForId(id) {
-  return (hashString("rot-" + id) % 121) / 10 - 6; // -6..6.05 stopnia
-}
-
-function shadeColor(hex, percent) {
-  const num = parseInt(hex.slice(1), 16);
-  let r = (num >> 16) + percent;
-  let g = ((num >> 8) & 0xff) + percent;
-  let b = (num & 0xff) + percent;
-  r = clamp(r, 0, 255);
-  g = clamp(g, 0, 255);
-  b = clamp(b, 0, 255);
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function formatTime(ms) {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
+let world = null;
 
 // ---------------------------------------------------------------------------
 // DOM — referencje
 // ---------------------------------------------------------------------------
 
-let sceneEl, sceneWrapEl, booksLayerEl, shelvesAreaEl, cartEl, vignetteEl;
-let progressEl, inkCountEl, rotateOverlayEl;
-let hoverTipEl, mistakeTipEl, shelfBannerEl, spellTipEl;
-let bookModalEl, bookCardCoverEl, bookCardMarkEl, bookCardTitleEl, bookCardAuthorEl;
-let bookCardYearEl, bookCardSeriesEl, bookCardEpochEl, bookCardHintEl;
-let confirmModalEl, menuModalEl, endModalEl, endMistakesEl, endTimeEl;
-let menuBtnEl, spellBtnEls;
+let sceneEl, rotateOverlayEl;
+let orderPercentEl, inkCountEl;
+let minimapTrackEl, minimapViewportEl, minimapMarkerEls;
+let bookModalEl, bookCardCoverEl, bookCardGenreIconEl, bookCardTitleEl, bookCardAuthorEl;
+let bookCardYearEl, bookCardSeriesEl, bookCardGenreEl, bookCardEpochEl, bookCardHintEl;
+let confirmModalEl, menuModalEl, endModalEl, endMistakesEl, endTimeEl, endEpochEl;
+let menuBtnEl, spellBtnEls, spellTipEl;
 
 function cacheDom() {
   sceneEl = document.getElementById("scene");
-  sceneWrapEl = document.getElementById("scene-wrap");
-  booksLayerEl = document.getElementById("books-layer");
-  shelvesAreaEl = document.getElementById("shelves-area");
-  cartEl = document.getElementById("cart");
-  vignetteEl = document.getElementById("vignette");
-  progressEl = document.getElementById("progress");
-  inkCountEl = document.getElementById("ink-count");
   rotateOverlayEl = document.getElementById("rotate-overlay");
-  hoverTipEl = document.getElementById("hover-tip");
-  mistakeTipEl = document.getElementById("mistake-tip");
-  shelfBannerEl = document.getElementById("shelf-banner");
-  spellTipEl = document.getElementById("spell-tip");
+  orderPercentEl = document.getElementById("order-percent");
+  inkCountEl = document.getElementById("ink-count");
+
+  minimapTrackEl = document.getElementById("minimap-track");
+  minimapViewportEl = document.getElementById("minimap-viewport");
+  minimapMarkerEls = {};
 
   bookModalEl = document.getElementById("book-modal");
   bookCardCoverEl = document.getElementById("book-card-cover");
-  bookCardMarkEl = document.getElementById("book-card-mark");
+  bookCardGenreIconEl = document.getElementById("book-card-genre-icon");
   bookCardTitleEl = document.getElementById("book-card-title");
   bookCardAuthorEl = document.getElementById("book-card-author");
   bookCardYearEl = document.getElementById("book-card-year");
   bookCardSeriesEl = document.getElementById("book-card-series");
+  bookCardGenreEl = document.getElementById("book-card-genre");
   bookCardEpochEl = document.getElementById("book-card-epoch");
   bookCardHintEl = document.getElementById("book-card-hint");
 
@@ -194,77 +148,11 @@ function cacheDom() {
   endModalEl = document.getElementById("end-modal");
   endMistakesEl = document.getElementById("end-mistakes");
   endTimeEl = document.getElementById("end-time");
+  endEpochEl = document.getElementById("end-epoch");
 
   menuBtnEl = document.getElementById("menu-btn");
   spellBtnEls = Array.from(document.querySelectorAll(".spell-btn"));
-}
-
-// ---------------------------------------------------------------------------
-// Geometria: przeliczanie współrzędnych ekranu na logiczne współrzędne sceny
-// ---------------------------------------------------------------------------
-
-function getLogicalRect(el) {
-  const sceneRect = sceneEl.getBoundingClientRect();
-  const scale = sceneRect.width / LOGICAL_W || 1;
-  const r = el.getBoundingClientRect();
-  return {
-    x: (r.left - sceneRect.left) / scale,
-    y: (r.top - sceneRect.top) / scale,
-    width: r.width / scale,
-    height: r.height / scale,
-  };
-}
-
-function toSceneCoords(clientX, clientY) {
-  const sceneRect = sceneEl.getBoundingClientRect();
-  const scale = sceneRect.width / LOGICAL_W || 1;
-  return {
-    x: (clientX - sceneRect.left) / scale,
-    y: (clientY - sceneRect.top) / scale,
-  };
-}
-
-let shelfSlotRects = {}; // epochId -> [{cx,cy,width,height}] x6, w kolejności czytania
-let shelfRectsByEpoch = {}; // epochId -> {x,y,width,height} całego regału
-let cartRectLogical = null;
-
-function computeGeometry() {
-  shelfSlotRects = {};
-  shelfRectsByEpoch = {};
-  for (const epoch of EPOCHS) {
-    const shelfEl = shelfElsByEpoch[epoch.id];
-    shelfRectsByEpoch[epoch.id] = getLogicalRect(shelfEl);
-    const slots = shelfEl.querySelectorAll(".slot");
-    const rects = [];
-    slots.forEach((slotEl) => {
-      const r = getLogicalRect(slotEl);
-      rects.push({ cx: r.x + r.width / 2, cy: r.y + r.height / 2, width: r.width, height: r.height });
-    });
-    shelfSlotRects[epoch.id] = rects;
-  }
-  cartRectLogical = getLogicalRect(cartEl);
-}
-
-function cartCellPosition(index) {
-  const col = index % CART_COLS;
-  const row = Math.floor(index / CART_COLS);
-  const padX = 50;
-  const padY = 70; // pół wysokości okładki + margines, żeby dolny rząd nie wychodził poza wózek
-  const usableW = Math.max(1, cartRectLogical.width - padX * 2);
-  const usableH = Math.max(1, cartRectLogical.height - padY * 2);
-  const cx = cartRectLogical.x + padX + (CART_COLS > 1 ? (usableW * col) / (CART_COLS - 1) : usableW / 2);
-  const cy = cartRectLogical.y + padY + (CART_ROWS > 1 ? (usableH * row) / (CART_ROWS - 1) : usableH / 2);
-  return { cx, cy };
-}
-
-function findShelfAt(pt) {
-  for (const epoch of EPOCHS) {
-    const r = shelfRectsByEpoch[epoch.id];
-    if (pt.x >= r.x && pt.x <= r.x + r.width && pt.y >= r.y && pt.y <= r.y + r.height) {
-      return epoch.id;
-    }
-  }
-  return null;
+  spellTipEl = document.getElementById("spell-tip");
 }
 
 // ---------------------------------------------------------------------------
@@ -285,227 +173,82 @@ function updatePortraitOverlay() {
 }
 
 // ---------------------------------------------------------------------------
-// Regały — budowa DOM
+// Mini-mapa
 // ---------------------------------------------------------------------------
 
-const shelfElsByEpoch = {};
-
-function renderShelves() {
-  shelvesAreaEl.innerHTML = "";
-  for (const epoch of EPOCHS) {
-    const shelfEl = document.createElement("div");
-    shelfEl.className = "shelf";
-    shelfEl.dataset.epoch = epoch.id;
-    shelfEl.innerHTML = `
-      <div class="shelf-plaque">
-        <span class="plaque-mark">${epoch.mark}</span>
-        <span class="plaque-name">${escapeHtml(epoch.name)}</span>
-        <span class="plaque-range">${escapeHtml(epoch.range)}</span>
-      </div>
-      <div class="shelf-body">
-        <div class="shelf-row">
-          <div class="slot empty" data-slot="0"></div>
-          <div class="slot empty" data-slot="1"></div>
-          <div class="slot empty" data-slot="2"></div>
-        </div>
-        <div class="shelf-row">
-          <div class="slot empty" data-slot="3"></div>
-          <div class="slot empty" data-slot="4"></div>
-          <div class="slot empty" data-slot="5"></div>
-        </div>
-      </div>`;
-    shelvesAreaEl.appendChild(shelfEl);
-    shelfElsByEpoch[epoch.id] = shelfEl;
+function buildMinimap() {
+  minimapTrackEl.innerHTML = "";
+  for (const shelf of LAYOUT.shelves) {
+    const marker = document.createElement("div");
+    marker.className = "minimap-marker";
+    const centerFrac = (shelf.x + shelf.w / 2) / WORLD_W;
+    marker.style.left = `${centerFrac * 100}%`;
+    minimapTrackEl.appendChild(marker);
+    minimapMarkerEls[shelf.genre] = marker;
   }
 }
 
-function applyCompletedShelvesVisual() {
-  for (const epochId of state.completedShelves) {
-    const shelfEl = shelfElsByEpoch[epochId];
-    if (shelfEl) shelfEl.classList.add("complete");
+function updateMinimapMarkers() {
+  for (const shelf of LAYOUT.shelves) {
+    const marker = minimapMarkerEls[shelf.genre];
+    if (marker) marker.classList.toggle("complete", state.completedShelves.includes(shelf.genre));
   }
 }
 
-// ---------------------------------------------------------------------------
-// Książki — budowa i pozycjonowanie
-// ---------------------------------------------------------------------------
-
-const bookRuntime = new Map(); // id -> {id, book, el, location, x, y, rot}
-const cartIndexById = {};
-const rotById = {};
-
-function coverInnerHtml(book) {
-  const epoch = EPOCH_BY_ID[book.epoch];
-  return (
-    `<div class="cover-frame"></div>` +
-    `<span class="cover-mark">${epoch.mark}</span>` +
-    `<span class="cover-title">${escapeHtml(book.title)}</span>` +
-    `<span class="cover-author">${escapeHtml(book.author)}</span>`
-  );
+function updateMinimapViewport() {
+  const fracLeft = state.camX / WORLD_W;
+  const fracWidth = WORLD_VIEW_W / WORLD_W;
+  minimapViewportEl.style.left = `${fracLeft * 100}%`;
+  minimapViewportEl.style.width = `${fracWidth * 100}%`;
 }
 
-function spineInnerHtml(book) {
-  const epoch = EPOCH_BY_ID[book.epoch];
-  return `<span class="spine-title">${escapeHtml(book.title)}</span><span class="spine-mark">${epoch.mark}</span>`;
-}
+function wireMinimapInput() {
+  let dragging = false;
 
-function applyTransform(el, x, y, rotDeg, scale) {
-  el.style.transform = `translate(${x}px, ${y}px) rotate(${rotDeg}deg) scale(${scale})`;
-}
-
-function buildBooksLayer() {
-  booksLayerEl.innerHTML = "";
-  bookRuntime.clear();
-  for (const book of BOOKS) {
-    const isPlaced = !!state.placed[book.id];
-    const el = document.createElement("div");
-    el.className = (isPlaced ? "book-spine" : "book-cover") + " no-anim";
-    el.innerHTML = isPlaced ? spineInnerHtml(book) : coverInnerHtml(book);
-    el.style.background = shadeColor(EPOCH_BY_ID[book.epoch].baseColor, brightnessVariant(book.id));
-    booksLayerEl.appendChild(el);
-
-    const rt = { id: book.id, book, el, location: isPlaced ? "shelf" : "cart", x: 0, y: 0, rot: rotById[book.id] };
-    bookRuntime.set(book.id, rt);
-    attachBookListeners(el, book.id);
+  function setFromClientX(clientX) {
+    const r = minimapTrackEl.getBoundingClientRect();
+    const frac = clamp((clientX - r.left) / r.width, 0, 1);
+    const targetWorldX = frac * WORLD_W - WORLD_VIEW_W / 2;
+    world.setCamX(targetWorldX);
   }
-}
 
-function getSortedShelfBooks(epochId) {
-  const list = [];
-  for (const rt of bookRuntime.values()) {
-    if (rt.location === "shelf" && rt.book.epoch === epochId) list.push(rt);
-  }
-  list.sort((a, b) => {
-    const byAuthor = a.book.authorSort.localeCompare(b.book.authorSort, "pl");
-    if (byAuthor !== 0) return byAuthor;
-    return (a.book.series?.vol ?? 0) - (b.book.series?.vol ?? 0);
+  minimapTrackEl.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    try {
+      minimapTrackEl.setPointerCapture(e.pointerId);
+    } catch (err) {
+      /* ignorowane */
+    }
+    setFromClientX(e.clientX);
   });
-  return list;
-}
-
-function layoutShelf(epochId) {
-  const list = getSortedShelfBooks(epochId);
-  const rects = shelfSlotRects[epochId];
-  list.forEach((rt, i) => {
-    const slot = rects[i];
-    if (!slot) return;
-    const x = slot.cx - BOOK_SPINE_W / 2;
-    const y = slot.cy - BOOK_SPINE_H / 2;
-    rt.x = x;
-    rt.y = y;
-    applyTransform(rt.el, x, y, 0, 1);
+  minimapTrackEl.addEventListener("pointermove", (e) => {
+    if (dragging) setFromClientX(e.clientX);
   });
-  const slotEls = shelfElsByEpoch[epochId].querySelectorAll(".slot");
-  slotEls.forEach((slotEl, i) => slotEl.classList.toggle("empty", i >= list.length));
-}
-
-function layoutCartBook(rt) {
-  const { cx, cy } = cartCellPosition(cartIndexById[rt.id]);
-  const x = cx - BOOK_COVER_W / 2;
-  const y = cy - BOOK_COVER_H / 2;
-  rt.x = x;
-  rt.y = y;
-  applyTransform(rt.el, x, y, rt.rot, 1);
-}
-
-function layoutAll() {
-  for (const rt of bookRuntime.values()) {
-    if (rt.location === "cart") layoutCartBook(rt);
-  }
-  for (const epoch of EPOCHS) layoutShelf(epoch.id);
-}
-
-function countPlacedInShelf(epochId) {
-  return BOOKS.reduce((n, b) => n + (b.epoch === epochId && state.placed[b.id] ? 1 : 0), 0);
+  minimapTrackEl.addEventListener("pointerup", (e) => {
+    dragging = false;
+    try {
+      minimapTrackEl.releasePointerCapture(e.pointerId);
+    } catch (err) {
+      /* ignorowane */
+    }
+  });
+  minimapTrackEl.addEventListener("pointercancel", () => {
+    dragging = false;
+  });
 }
 
 // ---------------------------------------------------------------------------
-// UI: pasek postępu, atrament, winieta
+// Pasek atramentu i porządku
 // ---------------------------------------------------------------------------
-
-function updateProgressUI() {
-  const placedCount = Object.keys(state.placed).length;
-  progressEl.textContent = `${placedCount} / ${TOTAL_BOOKS}`;
-}
 
 function updateInkUI() {
   inkCountEl.textContent = String(state.ink);
 }
 
-function updateVignette() {
-  const placedCount = Object.keys(state.placed).length;
-  const opacity = 0.65 - placedCount * ((0.65 - 0.05) / TOTAL_BOOKS);
-  vignetteEl.style.opacity = String(clamp(opacity, 0.05, 0.65));
-}
-
-// ---------------------------------------------------------------------------
-// Dymki i banery
-// ---------------------------------------------------------------------------
-
-let hoverHideTimer = null;
-
-function showHoverTip(rt) {
-  const book = rt.book;
-  const width = rt.location === "shelf" ? BOOK_SPINE_W : BOOK_COVER_W;
-  let html = `<strong>${escapeHtml(book.title)}</strong><span class="hover-tip-author">${escapeHtml(book.author)}</span>`;
-  if (book.series) {
-    html += `<span class="hover-tip-series">Tom ${book.series.vol} z ${book.series.of}</span>`;
-  }
-  hoverTipEl.innerHTML = html;
-  hoverTipEl.style.left = `${rt.x + width / 2}px`;
-  hoverTipEl.style.top = `${rt.y - 6}px`;
-  hoverTipEl.classList.remove("hidden");
-  clearTimeout(hoverHideTimer);
-}
-
-function hideHoverTip() {
-  hoverTipEl.classList.add("hidden");
-}
-
-let mistakeTipTimer = null;
-
-function showMistakeTip(shelfEl) {
-  const r = getLogicalRect(shelfEl);
-  mistakeTipEl.style.left = `${r.x + r.width / 2}px`;
-  mistakeTipEl.style.top = `${r.y - 6}px`;
-  mistakeTipEl.classList.remove("hidden");
-  clearTimeout(mistakeTipTimer);
-  mistakeTipTimer = setTimeout(() => mistakeTipEl.classList.add("hidden"), 1800);
-}
-
-let bannerTimer = null;
-
-function showShelfBanner(epochId) {
-  shelfBannerEl.textContent = `Regał «${EPOCH_BY_ID[epochId].name}» uporządkowany!`;
-  shelfBannerEl.classList.remove("hidden");
-  clearTimeout(bannerTimer);
-  bannerTimer = setTimeout(() => shelfBannerEl.classList.add("hidden"), 2500);
-}
-
-let spellTipTimer = null;
-
-function showSpellTip(btnEl) {
-  const unlockN = btnEl.dataset.unlock;
-  const spellKey = btnEl.dataset.spell;
-  const desc = SPELL_INFO[spellKey] || "";
-  const r = getLogicalRect(btnEl);
-  spellTipEl.innerHTML = `<strong>Odblokujesz po ukończeniu ${unlockN}. regału</strong><br>${desc}`;
-  spellTipEl.style.left = `${r.x + r.width / 2}px`;
-  spellTipEl.style.top = `${r.y + r.height + 12}px`;
-  spellTipEl.classList.remove("hidden");
-  clearTimeout(spellTipTimer);
-  spellTipTimer = setTimeout(() => spellTipEl.classList.add("hidden"), 3500);
-}
-
-function spawnInkDroplet(epochId, amount) {
-  const rect = shelfRectsByEpoch[epochId];
-  const el = document.createElement("div");
-  el.className = "ink-droplet";
-  el.textContent = `+${amount}`;
-  el.style.left = `${rect.x + rect.width / 2}px`;
-  el.style.top = `${rect.y + 4}px`;
-  sceneEl.appendChild(el);
-  setTimeout(() => el.remove(), 950);
+function updateOrderUI() {
+  const stats = computeStats(state);
+  orderPercentEl.textContent = `Porządek: ${stats.percent}%`;
+  return stats;
 }
 
 // ---------------------------------------------------------------------------
@@ -519,17 +262,19 @@ function hideModal(el) {
   el.classList.add("hidden");
 }
 
-function openBookModal(id) {
-  const rt = bookRuntime.get(id);
-  if (!rt) return;
-  const book = rt.book;
+function openBookModal(bookId) {
+  const book = BOOKS.find((b) => b.id === bookId);
+  if (!book) return;
   const epoch = EPOCH_BY_ID[book.epoch];
+  const genre = GENRE_BY_ID[book.genre];
 
   bookCardCoverEl.style.background = shadeColor(epoch.baseColor, brightnessVariant(book.id));
-  bookCardMarkEl.textContent = epoch.mark;
+  bookCardGenreIconEl.innerHTML = GENRE_ICONS[genre.icon];
   bookCardTitleEl.textContent = book.title;
   bookCardAuthorEl.textContent = book.author;
   bookCardYearEl.textContent = `Rok: ok. ${book.year}`;
+  bookCardGenreEl.textContent = `Gatunek: ${genre.name}`;
+  bookCardEpochEl.textContent = `Epoka: ${epoch.name}`;
 
   if (book.series) {
     bookCardSeriesEl.textContent = `Tom ${book.series.vol} z ${book.series.of} — seria «${book.series.name}»`;
@@ -538,222 +283,25 @@ function openBookModal(id) {
     bookCardSeriesEl.classList.add("hidden");
   }
 
-  if (rt.location === "shelf") {
-    bookCardEpochEl.textContent = `Epoka: ${epoch.name}`;
-    bookCardEpochEl.classList.remove("hidden");
-  } else {
-    bookCardEpochEl.classList.add("hidden");
-  }
-
   bookCardHintEl.textContent = book.hint;
   showModal(bookModalEl);
 }
 
 function showEndModal() {
+  const stats = computeStats(state);
   endMistakesEl.textContent = `Liczba pomyłek: ${state.mistakes}`;
   endTimeEl.textContent = `Czas gry: ${formatTime(currentPlayMs())}`;
+  endEpochEl.textContent = `Dobra epoka: ${stats.goodEpoch} / ${stats.totalBooks}`;
   showModal(endModalEl);
 }
 
-// ---------------------------------------------------------------------------
-// Umieszczanie książek na regałach
-// ---------------------------------------------------------------------------
-
-function placeBookOnShelf(rt) {
-  state.placed[rt.id] = true;
-  rt.location = "shelf";
-  rt.el.classList.remove("book-cover");
-  rt.el.classList.add("book-spine");
-  rt.el.innerHTML = spineInnerHtml(rt.book);
-
-  layoutShelf(rt.book.epoch);
-
-  state.ink = clamp(state.ink + 1, 0, 20);
-  playPlaceGood();
-  spawnInkDroplet(rt.book.epoch, 1);
-  updateProgressUI();
-  updateInkUI();
-  updateVignette();
-
-  const placedInShelf = countPlacedInShelf(rt.book.epoch);
-  if (placedInShelf === SLOTS_PER_SHELF && !state.completedShelves.includes(rt.book.epoch)) {
-    state.completedShelves.push(rt.book.epoch);
-    state.ink = clamp(state.ink + 5, 0, 20);
-    updateInkUI();
-    shelfElsByEpoch[rt.book.epoch].classList.add("complete");
-    playShelfComplete();
-    showShelfBanner(rt.book.epoch);
-  }
-
-  saveState();
-  checkWinCondition();
-}
-
-function rejectDrop(rt, targetEpochId) {
-  state.mistakes++;
-  playMistake();
-  const shelfEl = shelfElsByEpoch[targetEpochId];
-  shelfEl.classList.add("shake");
-  setTimeout(() => shelfEl.classList.remove("shake"), 450);
-  showMistakeTip(shelfEl);
-  returnBookToCart(rt);
-  saveState();
-}
-
-function returnBookToCart(rt) {
-  layoutCartBook(rt);
-}
-
-function checkWinCondition() {
-  const placedCount = Object.keys(state.placed).length;
-  if (placedCount >= TOTAL_BOOKS) {
+let endShown = false;
+function checkWinCondition(stats) {
+  if (stats.percent >= 100 && !endShown) {
+    endShown = true;
     flushPlayTime();
     showEndModal();
   }
-}
-
-// ---------------------------------------------------------------------------
-// Interakcja wskaźnikowa: przeciąganie, stuknięcie, hover
-// ---------------------------------------------------------------------------
-
-let drag = null; // {id, pointerId, startClientX, startClientY, moved, draggable, grabDX, grabDY}
-
-function onBookPointerDown(e, id) {
-  const rt = bookRuntime.get(id);
-  if (!rt) return;
-  e.preventDefault();
-  hideHoverTip();
-  try {
-    rt.el.setPointerCapture(e.pointerId);
-  } catch (err) {
-    /* ignorowane — capture jest tylko usprawnieniem */
-  }
-
-  drag = {
-    id,
-    pointerId: e.pointerId,
-    startClientX: e.clientX,
-    startClientY: e.clientY,
-    moved: false,
-    draggable: rt.location === "cart",
-    grabDX: 0,
-    grabDY: 0,
-  };
-
-  if (drag.draggable) {
-    const scenePt = toSceneCoords(e.clientX, e.clientY);
-    drag.grabDX = scenePt.x - rt.x;
-    drag.grabDY = scenePt.y - rt.y;
-  }
-}
-
-function onBookPointerMove(e, id) {
-  if (drag && drag.id === id && drag.pointerId === e.pointerId) {
-    const rt = bookRuntime.get(id);
-    if (!rt) return;
-    const dxTotal = e.clientX - drag.startClientX;
-    const dyTotal = e.clientY - drag.startClientY;
-
-    if (!drag.moved && Math.hypot(dxTotal, dyTotal) > DRAG_THRESHOLD) {
-      drag.moved = true;
-      if (drag.draggable) rt.el.classList.add("dragging");
-    }
-
-    if (drag.moved && drag.draggable) {
-      const scenePt = toSceneCoords(e.clientX, e.clientY);
-      const newX = scenePt.x - drag.grabDX;
-      const newY = scenePt.y - drag.grabDY;
-      rt.x = newX;
-      rt.y = newY;
-      applyTransform(rt.el, newX, newY, 0, 1.12);
-      updateShelfHighlight(scenePt);
-    }
-    return;
-  }
-
-  if (drag) return; // trwa przeciąganie innej książki
-
-  if (e.buttons === 0 && (e.pointerType === "pen" || e.pointerType === "mouse")) {
-    const rt = bookRuntime.get(id);
-    if (rt) showHoverTip(rt);
-  }
-}
-
-function updateShelfHighlight(scenePt) {
-  const hit = findShelfAt(scenePt);
-  for (const epoch of EPOCHS) {
-    shelfElsByEpoch[epoch.id].classList.toggle("drag-target", epoch.id === hit);
-  }
-}
-
-function clearShelfHighlights() {
-  for (const epoch of EPOCHS) shelfElsByEpoch[epoch.id].classList.remove("drag-target");
-}
-
-function onBookPointerUp(e, id) {
-  if (!drag || drag.id !== id || drag.pointerId !== e.pointerId) return;
-  const rt = bookRuntime.get(id);
-  const wasMoved = drag.moved;
-  const wasDraggable = drag.draggable;
-  try {
-    rt.el.releasePointerCapture(e.pointerId);
-  } catch (err) {
-    /* ignorowane */
-  }
-  drag = null;
-
-  if (!rt) return;
-
-  if (!wasMoved) {
-    // Stuknięcie bez ruchu = otwórz kartę książki.
-    openBookModal(id);
-    return;
-  }
-
-  if (!wasDraggable) {
-    return; // książka na regale — lekki ruch bez efektu
-  }
-
-  rt.el.classList.remove("dragging");
-  const scenePt = toSceneCoords(e.clientX, e.clientY);
-  const targetEpoch = findShelfAt(scenePt);
-  clearShelfHighlights();
-
-  if (!targetEpoch) {
-    returnBookToCart(rt);
-    return;
-  }
-  if (targetEpoch === rt.book.epoch) {
-    placeBookOnShelf(rt);
-  } else {
-    rejectDrop(rt, targetEpoch);
-  }
-}
-
-function onBookPointerCancel(e, id) {
-  if (!drag || drag.id !== id || drag.pointerId !== e.pointerId) return;
-  const rt = bookRuntime.get(id);
-  const wasDraggable = drag.draggable;
-  const wasMoved = drag.moved;
-  drag = null;
-  if (rt && wasDraggable && wasMoved) {
-    rt.el.classList.remove("dragging");
-    clearShelfHighlights();
-    returnBookToCart(rt);
-  }
-}
-
-function onBookPointerLeave(e, id) {
-  if (drag && drag.id === id) return;
-  hideHoverTip();
-}
-
-function attachBookListeners(el, id) {
-  el.addEventListener("pointerdown", (e) => onBookPointerDown(e, id));
-  el.addEventListener("pointermove", (e) => onBookPointerMove(e, id));
-  el.addEventListener("pointerup", (e) => onBookPointerUp(e, id));
-  el.addEventListener("pointercancel", (e) => onBookPointerCancel(e, id));
-  el.addEventListener("pointerleave", (e) => onBookPointerLeave(e, id));
 }
 
 // ---------------------------------------------------------------------------
@@ -795,6 +343,36 @@ function restartGame() {
     console.warn("Nie udało się wyczyścić zapisu.", err);
   }
   location.reload();
+}
+
+// ---------------------------------------------------------------------------
+// Dymek czaru (zablokowany w tym etapie)
+// ---------------------------------------------------------------------------
+
+let spellTipTimer = null;
+function getLogicalRectSimple(el) {
+  const sceneRect = sceneEl.getBoundingClientRect();
+  const scale = sceneRect.width / LOGICAL_W || 1;
+  const r = el.getBoundingClientRect();
+  return {
+    x: (r.left - sceneRect.left) / scale,
+    y: (r.top - sceneRect.top) / scale,
+    width: r.width / scale,
+    height: r.height / scale,
+  };
+}
+
+function showSpellTip(btnEl) {
+  const unlockN = btnEl.dataset.unlock;
+  const spellKey = btnEl.dataset.spell;
+  const desc = SPELL_INFO[spellKey] || "";
+  const r = getLogicalRectSimple(btnEl);
+  spellTipEl.innerHTML = `<strong>Odblokujesz po ukończeniu ${unlockN}. regału</strong><br>${desc}`;
+  spellTipEl.style.left = `${r.x + r.width / 2}px`;
+  spellTipEl.style.top = `${r.y + r.height + 12}px`;
+  spellTipEl.classList.remove("hidden");
+  clearTimeout(spellTipTimer);
+  spellTipTimer = setTimeout(() => spellTipEl.classList.add("hidden"), 3500);
 }
 
 // ---------------------------------------------------------------------------
@@ -842,31 +420,35 @@ function wireGlobalEvents() {
 // Start gry
 // ---------------------------------------------------------------------------
 
+function onWorldChange() {
+  saveState();
+  updateInkUI();
+  const stats = updateOrderUI();
+  updateMinimapMarkers();
+  updateMinimapViewport();
+  checkWinCondition(stats);
+}
+
+function onWorldCameraChange() {
+  updateMinimapViewport();
+}
+
 function init() {
   state = loadState();
   cacheDom();
-  renderShelves();
-  computeGeometry();
+  buildMinimap();
+  wireMinimapInput();
 
-  const shuffledOrder = seededShuffle(
-    BOOKS.map((b) => b.id),
-    mulberry32(state.seed)
-  );
-  shuffledOrder.forEach((id, i) => (cartIndexById[id] = i));
-  BOOKS.forEach((b) => (rotById[b.id] = rotationForId(b.id)));
-
-  buildBooksLayer();
-  layoutAll();
-
-  // Usuń blokadę animacji dopiero po pierwszym układzie, żeby dalsze ruchy się animowały.
-  requestAnimationFrame(() => {
-    document.querySelectorAll(".no-anim").forEach((el) => el.classList.remove("no-anim"));
+  world = initWorld(state, {
+    openBookModal,
+    onChange: onWorldChange,
+    onCameraChange: onWorldCameraChange,
   });
 
-  updateProgressUI();
   updateInkUI();
-  updateVignette();
-  applyCompletedShelvesVisual();
+  updateOrderUI();
+  updateMinimapMarkers();
+  updateMinimapViewport();
 
   wireGlobalEvents();
   updateScale();
@@ -874,8 +456,8 @@ function init() {
   // Zabezpieczenie przed utratą czasu gry przy awaryjnym zamknięciu karty.
   setInterval(flushPlayTime, 15000);
 
-  // Jeżeli zapis wczytał ukończoną salę (30/30), pokaż od razu ekran końcowy.
-  checkWinCondition();
+  // Jeżeli zapis wczytał ukończoną salę (100%), pokaż od razu ekran końcowy.
+  checkWinCondition(computeStats(state));
 }
 
 if (document.readyState === "loading") {

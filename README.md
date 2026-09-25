@@ -1,13 +1,25 @@
 # Biblioteka — Sala Załuskich
 
-Prosta gra przeglądarkowa 2D o porządkowaniu biblioteki: na wózku leżą pomieszane
-polskie lektury szkolne, gracz przeciąga je (palcem, Apple Pencil albo myszą) na
-właściwy regał odpowiadający epoce literackiej.
+Gra przeglądarkowa 2D o sprzątaniu zabałaganionej biblioteki: sala („Sala
+Załuskich”) to przewijany świat 3720×804 px pełen porozrzucanych, zakurzonych
+i ukrytych książek. Gracz przesuwa widok palcem, zbiera książki do koszyka albo
+niesie je od razu na regał, odpowiada za sprzątanie kurzu i pajęczyn (gestem
+przecierania) oraz odnoszenie luźnych kartek do teczki.
 
-To jest **Etap 1 — grywalny szkic**: jedna sala („Sala Załuskich”), 30 książek,
-przeciąganie, karta książki, zapis postępu. Grafika to na razie wyłącznie gradienty
-CSS (bez obrazków), a czary w pasku górnym są celowo zablokowane — to dopiero
-kolejne etapy (patrz `docs/PLAN.md`).
+**Regały są według GATUNKU** (Poezja, Dramat, Powieść, Nowela i opowiadanie,
+Literatura faktu) — to warunek przyjęcia książki. Każdy regał ma inną liczbę
+miejsc i chronologiczny zestaw plakietek epok pod spodem: trafienie w slot
+z pasującą epoką daje dodatkowy bonus atramentu („Dobra epoka!”), a regał
+złożony w pełnej chronologii dostaje złotą gwiazdkę „Ład chronologiczny”.
+Epoka nie wpływa na to, czy książka w ogóle trafia na regał — to tylko bonus.
+
+To jest **Etap 1b — sala w bałaganie**: jedna sala, 30 książek, panorama
+z mini-mapą, koszyk na 6 książek, stosy (widoczna tylko górna książka), 3
+kryjówki (szuflada, fotel, zasłona), kurz i pajęczyny do przetarcia, luźne
+kartki do teczki, świece zapalające się przy ukończonym regale i żyrandol przy
+100% porządku. Grafika sali to na razie CSS (patrz `assets/README.md` — realne
+ilustracje podmienią ją automatycznie, gdy się pojawią), a czary w pasku górnym
+są celowo zablokowane — to dopiero kolejne etapy (patrz `docs/PLAN.md`).
 
 ## Jak uruchomić
 

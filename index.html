@@ -27,7 +27,6 @@
     <!-- Scena o stałym rozmiarze logicznym 1366×1024, skalowana przez JS (transform: scale) -->
     <div id="scene-wrap">
       <div id="scene">
-        <div id="vignette"></div>
 
         <header id="topbar">
           <div class="topbar-left">
@@ -35,7 +34,11 @@
             <h1 id="room-title">Sala Załuskich</h1>
           </div>
           <div class="topbar-center">
-            <div id="progress" aria-live="polite">0 / 30</div>
+            <div id="order-percent" aria-live="polite">Porządek: 0%</div>
+            <div id="minimap" aria-label="Mini-mapa sali">
+              <div id="minimap-track"></div>
+              <div id="minimap-viewport"></div>
+            </div>
           </div>
           <div class="topbar-right">
             <div id="inkwell" title="Atrament">
@@ -60,29 +63,34 @@
           </div>
         </header>
 
-        <main id="shelves-area">
-          <!-- 5 regałów renderowanych przez JS (js/game.js) -->
+        <!-- Okno świata: pokazuje fragment sali (3720×804), przesuwane poziomo -->
+        <main id="world-viewport" aria-label="Sala — przesuń palcem, aby się rozejrzeć">
+          <div id="world-layer"></div>
+          <div id="darkness"></div>
         </main>
 
+        <!-- Koszyk na dole: 6 miejsc na okładki -->
         <footer id="cart-area">
-          <div id="cart" aria-label="Wózek z książkami">
-            <!-- Książki na wózku renderowane przez JS -->
+          <div id="cart" aria-label="Koszyk na książki">
+            <span class="cart-label">Koszyk</span>
+            <span id="basket-counter">0 / 6</span>
           </div>
+          <div id="basket-layer"></div>
         </footer>
 
-        <!-- Warstwa interaktywna: wszystkie książki (wózek + regały), wspólny układ współrzędnych -->
-        <div id="books-layer"></div>
+        <!-- Warstwa aktywnego przeciągania — nad wszystkim, poza obcięciem okna świata -->
+        <div id="drag-layer"></div>
 
         <!-- Chmurka podglądu przy unoszeniu rysika/myszy -->
         <div id="hover-tip" class="hidden"></div>
 
-        <!-- Chmurka po nieudanym odłożeniu -->
-        <div id="mistake-tip" class="hidden">Ta książka szuka innej epoki</div>
+        <!-- Chmurka komunikatów (pomyłka, pełny koszyk, zablokowany stos, kurz) -->
+        <div id="msg-tip" class="hidden"></div>
 
-        <!-- Baner ukończenia regału -->
+        <!-- Baner ukończenia regału / ładu chronologicznego -->
         <div id="shelf-banner" class="hidden"></div>
 
-        <!-- Dymek czaru (zablokowany w Etapie 1) -->
+        <!-- Dymek czaru (zablokowany w tym etapie) -->
         <div id="spell-tip" class="hidden"></div>
 
         <!-- Karta książki -->
@@ -91,14 +99,15 @@
           <div class="modal-card book-card">
             <button class="modal-close" data-close="book" aria-label="Zamknij">✕</button>
             <div class="book-card-cover" id="book-card-cover">
-              <div class="book-card-mark" id="book-card-mark"></div>
+              <div class="book-card-genre-icon" id="book-card-genre-icon"></div>
             </div>
             <div class="book-card-info">
               <h2 id="book-card-title"></h2>
               <p id="book-card-author"></p>
               <p id="book-card-year"></p>
               <p id="book-card-series" class="hidden"></p>
-              <p id="book-card-epoch" class="hidden"></p>
+              <p id="book-card-genre"></p>
+              <p id="book-card-epoch"></p>
               <p id="book-card-hint" class="hint-text"></p>
             </div>
           </div>
@@ -134,6 +143,7 @@
             <h2>Sala Załuskich lśni porządkiem!</h2>
             <p id="end-mistakes"></p>
             <p id="end-time"></p>
+            <p id="end-epoch"></p>
             <button id="end-restart-btn" class="btn btn-primary btn-block">Zacznij od nowa</button>
           </div>
         </div>

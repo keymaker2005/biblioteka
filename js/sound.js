@@ -95,3 +95,50 @@ export function playShelfComplete() {
     tone({ freq, duration: 0.9, type: "sine", gain: 0.1, startAt: i * 0.03 });
   });
 }
+
+/** Krótki cichy szum przecierania kurzu/pajęczyny — wywoływany co kilka ruchów podczas gestu. */
+export function playWipe() {
+  if (!ctx) return;
+  noiseKnock({ duration: 0.1, gain: 0.09, filterFreq: 2600 });
+}
+
+/** Kurz/pajęczyna znikają do końca — miękki, jasny szum. */
+export function playDustGone() {
+  if (!ctx) return;
+  noiseKnock({ duration: 0.28, gain: 0.16, filterFreq: 1800 });
+  tone({ freq: 660, freqEnd: 990, duration: 0.22, type: "sine", gain: 0.06, startAt: 0.02 });
+}
+
+/** Otwarcie szuflady biurka. */
+export function playDrawer() {
+  if (!ctx) return;
+  noiseKnock({ duration: 0.22, gain: 0.22, filterFreq: 420 });
+}
+
+/** Szelest kryjówki (fotel, zasłona) albo odłożenie kartki do teczki. */
+export function playPaper() {
+  if (!ctx) return;
+  noiseKnock({ duration: 0.16, gain: 0.18, filterFreq: 3200 });
+}
+
+/** Zapalenie kinkietu/żyrandola: ciepłe, krótkie „puff”. */
+export function playCandle() {
+  if (!ctx) return;
+  tone({ freq: 520, freqEnd: 300, duration: 0.3, type: "sine", gain: 0.1 });
+  noiseKnock({ duration: 0.06, gain: 0.12, filterFreq: 1200, startAt: 0.01 });
+}
+
+/** Bonus „Dobra epoka!” — mała złota iskra dźwiękowa. */
+export function playEpochBonus() {
+  if (!ctx) return;
+  tone({ freq: 880, duration: 0.16, type: "sine", gain: 0.09 });
+  tone({ freq: 1320, duration: 0.18, type: "sine", gain: 0.07, startAt: 0.05 });
+}
+
+/** Bonus „Ład chronologiczny” — cały regał ma dobrą epokę: mały arpeggio. */
+export function playChronologyStar() {
+  if (!ctx) return;
+  [523.25, 659.25, 784.0, 1046.5].forEach((freq, i) => {
+    tone({ freq, duration: 0.5, type: "sine", gain: 0.09, startAt: i * 0.05 });
+  });
+}
