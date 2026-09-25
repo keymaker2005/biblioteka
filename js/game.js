@@ -1,21 +1,26 @@
 // js/game.js
-// Etap 1b — orchestrator: stan gry i zapis (localStorage, klucz biblioteka.v2),
-// skalowanie sceny, pasek górny (porządek % + mini-mapa + atrament + czary),
-// modale (karta książki, menu, potwierdzenie restartu, ekran końcowy), czas gry.
+// Etap 1b/2 — orchestrator: stan gry i zapis (localStorage, klucz biblioteka.v2),
+// ustawienia (localStorage, klucz biblioteka.ustawienia), skalowanie sceny,
+// pasek górny (mini-mapa) + pasek dolny (czary, koszyk, atrament, porządek),
+// ekran powitalny, "Jak grać", menu, ustawienia, modale (karta książki,
+// potwierdzenie restartu, ekran końcowy), czas gry.
 // Cała reszta (sala, przeciąganie, kurz, pajęczyny, koszyk, kryjówki, regały)
 // mieszka w js/world.js — ten plik tylko go inicjuje i reaguje na jego zmiany.
 
 import { EPOCH_BY_ID, GENRE_BY_ID, GENRE_ICONS, BOOKS } from "./books.js";
 import { LAYOUT, WORLD_W } from "./layout.js";
 import { initWorld, computeStats } from "./world.js";
-import { unlockAudio } from "./sound.js";
-import { clamp, shadeColor, brightnessVariant, formatTime } from "./util.js";
+import { unlockAudio, setSoundsEnabled, setMusicSettings } from "./sound.js";
+import { clamp, shadeColor, brightnessVariant, formatTime, positionFloatingTip } from "./util.js";
 
 const LOGICAL_W = 1366;
 const LOGICAL_H = 1024;
 const STORAGE_KEY = "biblioteka.v2";
+const SETTINGS_KEY = "biblioteka.ustawienia";
 const WORLD_VIEW_W = 1366;
 const MAX_CAMX = Math.max(0, WORLD_W - WORLD_VIEW_W);
+const RING_R = 30;
+const RING_CIRC = 2 * Math.PI * RING_R;
 
 const SPELL_INFO = {
   wglad: "Każda książka w sali dostanie znak swojego regału i zaświeci jego kolorem — pomaga rozpoznać trudne tytuły (20 sekund).",
@@ -23,12 +28,25 @@ const SPELL_INFO = {
   skrzat: "Skrzat biblioteczny sam odłoży kilka książek, przyspieszając porządkowanie (30 sekund).",
 };
 
+const HOWTO_SLIDES = [
+  { icon: "🏛️", text: "Sala jest w nieładzie — posprzątaj ją. Przesuwaj salę palcem, mapa u góry pokazuje, gdzie jesteś." },
+  { icon: "📚", text: "Zbieraj książki do koszyka i odnoś je na regały. Regały są według gatunków — ikona na okładce podpowiada gatunek." },
+  { icon: "🧹", text: "Kurz i pajęczyny: pocieraj palcem lub rysikiem." },
+  { icon: "🔍", text: "Szukaj kryjówek — szuflada, fotel i zasłona oznaczone lupą mogą coś skrywać. Stosy zdejmuj od góry." },
+  { icon: "🗂️", text: "Luźne kartki zanieś do teczki na biurku." },
+  { icon: "✦", text: "Bonus: plakietka pod miejscem na półce to epoka — dobra epoka daje ✦ i atrament. Porządek sali rośnie, a sala nabiera blasku." },
+];
+
 // ---------------------------------------------------------------------------
 // Stan gry i zapis
 // ---------------------------------------------------------------------------
 
 function defaultHideoutsOpened() {
   return Object.fromEntries(LAYOUT.hideouts.map((h) => [h.id, false]));
+}
+
+function defaultHintsShown() {
+  return { hideout: false, cobweb: false, page: false, dust: false, stack: false };
 }
 
 function defaultBooksState() {
@@ -46,6 +64,7 @@ function defaultState() {
     cobwebsCleared: [],
     pagesFiled: [],
     hideoutsOpened: defaultHideoutsOpened(),
+    hintsShown: defaultHintsShown(),
     ink: 0,
     mistakes: 0,
     startedAt: Date.now(),
@@ -86,6 +105,7 @@ function loadState() {
       cobwebsCleared: Array.isArray(parsed.cobwebsCleared) ? parsed.cobwebsCleared : [],
       pagesFiled: Array.isArray(parsed.pagesFiled) ? parsed.pagesFiled : [],
       hideoutsOpened: { ...fallback.hideoutsOpened, ...(parsed.hideoutsOpened || {}) },
+      hintsShown: { ...fallback.hintsShown, ...(parsed.hintsShown || {}) },
       ink: clamp(Number(parsed.ink) || 0, 0, 20),
       mistakes: Number(parsed.mistakes) || 0,
       startedAt: Number(parsed.startedAt) || Date.now(),
@@ -111,22 +131,75 @@ let state = defaultState();
 let world = null;
 
 // ---------------------------------------------------------------------------
+// Ustawienia (dźwięk, muzyka — zaczep, rozmiar napisów)
+// ---------------------------------------------------------------------------
+
+function defaultSettings() {
+  return { musicOn: true, musicVolume: 70, soundsOn: true, textScale: 1 };
+}
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return defaultSettings();
+    const parsed = JSON.parse(raw);
+    const fb = defaultSettings();
+    if (!parsed || typeof parsed !== "object") return fb;
+    return {
+      musicOn: typeof parsed.musicOn === "boolean" ? parsed.musicOn : fb.musicOn,
+      musicVolume: Number.isFinite(parsed.musicVolume) ? clamp(parsed.musicVolume, 0, 100) : fb.musicVolume,
+      soundsOn: typeof parsed.soundsOn === "boolean" ? parsed.soundsOn : fb.soundsOn,
+      textScale: [1, 1.2, 1.4].includes(parsed.textScale) ? parsed.textScale : fb.textScale,
+    };
+  } catch (err) {
+    console.warn("Nie udało się wczytać ustawień — używam domyślnych.", err);
+    return defaultSettings();
+  }
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (err) {
+    console.warn("Nie udało się zapisać ustawień.", err);
+  }
+}
+
+function applySettings() {
+  document.documentElement.style.setProperty("--text-scale", String(settings.textScale));
+  setSoundsEnabled(settings.soundsOn);
+  setMusicSettings({ on: settings.musicOn, volume: settings.musicVolume / 100 });
+}
+
+let settings = defaultSettings();
+
+// ---------------------------------------------------------------------------
 // DOM — referencje
 // ---------------------------------------------------------------------------
 
 let sceneEl, rotateOverlayEl;
-let orderPercentEl, inkCountEl;
+let inkCountEl, inkwellFillEl, inkwellBtnEl;
+let orderRingFillEl, orderRingPercentEl, orderRingBtnEl;
 let minimapTrackEl, minimapViewportEl, minimapMarkerEls;
 let bookModalEl, bookCardCoverEl, bookCardGenreIconEl, bookCardTitleEl, bookCardAuthorEl;
 let bookCardYearEl, bookCardSeriesEl, bookCardGenreEl, bookCardEpochEl, bookCardHintEl;
 let confirmModalEl, menuModalEl, endModalEl, endMistakesEl, endTimeEl, endEpochEl;
 let menuBtnEl, spellBtnEls, spellTipEl;
+let welcomeModalEl, welcomeContinueBtnEl, welcomeNewGameBtnEl, welcomeHowtoBtnEl, welcomeSettingsBtnEl;
+let howtoModalEl, howtoCardEl, howtoIconEl, howtoTextEl, howtoDotsEl, howtoBackBtnEl, howtoNextBtnEl;
+let settingsModalEl, settingMusicOnEl, settingMusicVolumeEl, settingSoundsOnEl, textScaleBtnEls;
 
 function cacheDom() {
   sceneEl = document.getElementById("scene");
   rotateOverlayEl = document.getElementById("rotate-overlay");
-  orderPercentEl = document.getElementById("order-percent");
+
   inkCountEl = document.getElementById("ink-count");
+  inkwellFillEl = document.getElementById("inkwell-fill");
+  inkwellBtnEl = document.getElementById("inkwell");
+
+  orderRingFillEl = document.getElementById("order-ring-fill");
+  orderRingPercentEl = document.getElementById("order-ring-percent");
+  orderRingBtnEl = document.getElementById("order-ring");
 
   minimapTrackEl = document.getElementById("minimap-track");
   minimapViewportEl = document.getElementById("minimap-viewport");
@@ -153,6 +226,26 @@ function cacheDom() {
   menuBtnEl = document.getElementById("menu-btn");
   spellBtnEls = Array.from(document.querySelectorAll(".spell-btn"));
   spellTipEl = document.getElementById("spell-tip");
+
+  welcomeModalEl = document.getElementById("welcome-modal");
+  welcomeContinueBtnEl = document.getElementById("welcome-continue-btn");
+  welcomeNewGameBtnEl = document.getElementById("welcome-newgame-btn");
+  welcomeHowtoBtnEl = document.getElementById("welcome-howto-btn");
+  welcomeSettingsBtnEl = document.getElementById("welcome-settings-btn");
+
+  howtoModalEl = document.getElementById("howto-modal");
+  howtoCardEl = document.getElementById("howto-card");
+  howtoIconEl = document.getElementById("howto-icon");
+  howtoTextEl = document.getElementById("howto-text");
+  howtoDotsEl = document.getElementById("howto-dots");
+  howtoBackBtnEl = document.getElementById("howto-back-btn");
+  howtoNextBtnEl = document.getElementById("howto-next-btn");
+
+  settingsModalEl = document.getElementById("settings-modal");
+  settingMusicOnEl = document.getElementById("setting-music-on");
+  settingMusicVolumeEl = document.getElementById("setting-music-volume");
+  settingSoundsOnEl = document.getElementById("setting-sounds-on");
+  textScaleBtnEls = Array.from(document.querySelectorAll("#setting-text-scale .segmented-btn"));
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +270,7 @@ function updatePortraitOverlay() {
 // ---------------------------------------------------------------------------
 
 function buildMinimap() {
-  minimapTrackEl.innerHTML = "";
+  minimapTrackEl.querySelectorAll(".minimap-marker").forEach((el) => el.remove());
   for (const shelf of LAYOUT.shelves) {
     const marker = document.createElement("div");
     marker.className = "minimap-marker";
@@ -206,6 +299,7 @@ function wireMinimapInput() {
   let dragging = false;
 
   function setFromClientX(clientX) {
+    if (!world) return;
     const r = minimapTrackEl.getBoundingClientRect();
     const frac = clamp((clientX - r.left) / r.width, 0, 1);
     const targetWorldX = frac * WORLD_W - WORLD_VIEW_W / 2;
@@ -238,17 +332,82 @@ function wireMinimapInput() {
 }
 
 // ---------------------------------------------------------------------------
-// Pasek atramentu i porządku
+// Pasek dolny: atrament (kałamarz) i porządek (pierścień)
 // ---------------------------------------------------------------------------
 
 function updateInkUI() {
   inkCountEl.textContent = String(state.ink);
+  if (inkwellFillEl) inkwellFillEl.style.width = `${clamp((state.ink / 20) * 100, 0, 100)}%`;
 }
 
 function updateOrderUI() {
   const stats = computeStats(state);
-  orderPercentEl.textContent = `Porządek: ${stats.percent}%`;
+  if (orderRingPercentEl) orderRingPercentEl.textContent = `${stats.percent}%`;
+  if (orderRingFillEl) {
+    orderRingFillEl.style.strokeDasharray = `${RING_CIRC}`;
+    orderRingFillEl.style.strokeDashoffset = `${RING_CIRC * (1 - stats.percent / 100)}`;
+  }
   return stats;
+}
+
+// ---------------------------------------------------------------------------
+// Dymki informacyjne HUD (czary, atrament, porządek) — dzielą jeden element
+// (#spell-tip), zawsze dociskany do wnętrza sceny (patrz positionFloatingTip).
+// ---------------------------------------------------------------------------
+
+let spellTipTimer = null;
+function getLogicalRectSimple(el) {
+  const sceneRect = sceneEl.getBoundingClientRect();
+  const scale = sceneRect.width / LOGICAL_W || 1;
+  const r = el.getBoundingClientRect();
+  return {
+    x: (r.left - sceneRect.left) / scale,
+    y: (r.top - sceneRect.top) / scale,
+    width: r.width / scale,
+    height: r.height / scale,
+  };
+}
+
+function showHudTip(anchorEl, html) {
+  const r = getLogicalRectSimple(anchorEl);
+  spellTipEl.innerHTML = html;
+  spellTipEl.classList.remove("hidden");
+  positionFloatingTip(spellTipEl, r.x + r.width / 2, r.y, { preferAbove: true, gap: 10, boundsW: LOGICAL_W, boundsH: LOGICAL_H });
+  clearTimeout(spellTipTimer);
+  spellTipTimer = setTimeout(() => spellTipEl.classList.add("hidden"), 3500);
+}
+
+function showSpellTip(btnEl) {
+  const unlockN = btnEl.dataset.unlock;
+  const spellKey = btnEl.dataset.spell;
+  const desc = SPELL_INFO[spellKey] || "";
+  showHudTip(btnEl, `<strong>Odblokujesz po ukończeniu ${unlockN}. regału</strong><br>${desc}`);
+}
+
+function showInkTip() {
+  showHudTip(inkwellBtnEl, `<strong>Atrament: ${state.ink} z 20 kropli</strong><br>Zdobywasz go za odłożone książki; w przyszłości zasila czary.`);
+}
+
+function showOrderTip() {
+  const stats = computeStats(state);
+  showHudTip(
+    orderRingBtnEl,
+    `<strong>Porządek sali: ${stats.percent}%</strong><br>Liczy odłożone książki, starty kurz, zdjęte pajęczyny i odniesione kartki.`
+  );
+}
+
+function wireHudInfoTooltips() {
+  inkwellBtnEl.addEventListener("pointerenter", (e) => {
+    if (e.pointerType === "touch") return;
+    showInkTip();
+  });
+  inkwellBtnEl.addEventListener("click", showInkTip);
+  orderRingBtnEl.addEventListener("pointerenter", (e) => {
+    if (e.pointerType === "touch") return;
+    showOrderTip();
+  });
+  orderRingBtnEl.addEventListener("click", showOrderTip);
+  spellBtnEls.forEach((btn) => btn.addEventListener("click", () => showSpellTip(btn)));
 }
 
 // ---------------------------------------------------------------------------
@@ -262,7 +421,9 @@ function hideModal(el) {
   el.classList.add("hidden");
 }
 
-function openBookModal(bookId) {
+/** Zaczep: JEDNO miejsce, które otwiera szczegóły książki po stuknięciu. Moduł
+ * „weź do ręki” (kolejna fala) podmieni wnętrze tej funkcji, nie wywołania. */
+function openBookDetails(bookId) {
   const book = BOOKS.find((b) => b.id === bookId);
   if (!book) return;
   const epoch = EPOCH_BY_ID[book.epoch];
@@ -333,7 +494,7 @@ function currentPlayMs() {
 }
 
 // ---------------------------------------------------------------------------
-// Restart gry
+// Restart / powrót do ekranu tytułowego
 // ---------------------------------------------------------------------------
 
 function restartGame() {
@@ -345,38 +506,198 @@ function restartGame() {
   location.reload();
 }
 
-// ---------------------------------------------------------------------------
-// Dymek czaru (zablokowany w tym etapie)
-// ---------------------------------------------------------------------------
-
-let spellTipTimer = null;
-function getLogicalRectSimple(el) {
-  const sceneRect = sceneEl.getBoundingClientRect();
-  const scale = sceneRect.width / LOGICAL_W || 1;
-  const r = el.getBoundingClientRect();
-  return {
-    x: (r.left - sceneRect.left) / scale,
-    y: (r.top - sceneRect.top) / scale,
-    width: r.width / scale,
-    height: r.height / scale,
-  };
-}
-
-function showSpellTip(btnEl) {
-  const unlockN = btnEl.dataset.unlock;
-  const spellKey = btnEl.dataset.spell;
-  const desc = SPELL_INFO[spellKey] || "";
-  const r = getLogicalRectSimple(btnEl);
-  spellTipEl.innerHTML = `<strong>Odblokujesz po ukończeniu ${unlockN}. regału</strong><br>${desc}`;
-  spellTipEl.style.left = `${r.x + r.width / 2}px`;
-  spellTipEl.style.top = `${r.y + r.height + 12}px`;
-  spellTipEl.classList.remove("hidden");
-  clearTimeout(spellTipTimer);
-  spellTipTimer = setTimeout(() => spellTipEl.classList.add("hidden"), 3500);
+function goToTitleScreen() {
+  flushPlayTime();
+  location.reload();
 }
 
 // ---------------------------------------------------------------------------
-// Zdarzenia globalne / okablowanie UI
+// Ekran powitalny
+// ---------------------------------------------------------------------------
+
+function computeHasProgress(st) {
+  const stats = computeStats(st);
+  return stats.percent > 0 || st.mistakes > 0 || st.playMs > 1000;
+}
+
+function showWelcomeScreen() {
+  const saved = loadState();
+  welcomeContinueBtnEl.classList.toggle("hidden", !computeHasProgress(saved));
+  showModal(welcomeModalEl);
+}
+
+function wireWelcomeUI() {
+  welcomeContinueBtnEl.addEventListener("click", () => {
+    state = loadState();
+    hideModal(welcomeModalEl);
+    startGame();
+  });
+  welcomeNewGameBtnEl.addEventListener("click", () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      console.warn("Nie udało się wyczyścić zapisu.", err);
+    }
+    state = defaultState();
+    hideModal(welcomeModalEl);
+    openHowToPlay("auto");
+  });
+  welcomeHowtoBtnEl.addEventListener("click", () => {
+    hideModal(welcomeModalEl);
+    openHowToPlay("welcome");
+  });
+  welcomeSettingsBtnEl.addEventListener("click", () => {
+    showModal(settingsModalEl);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// "Jak grać" — 6 kart, Dalej/Wstecz + przeciągnięcie palcem
+// ---------------------------------------------------------------------------
+
+let howToIndex = 0;
+let howToContext = "menu"; // "welcome" | "menu" | "auto" (po "Nowa gra")
+
+function openHowToPlay(context) {
+  howToContext = context;
+  howToIndex = 0;
+  renderHowToSlide();
+  showModal(howtoModalEl);
+}
+
+function renderHowToSlide() {
+  const slide = HOWTO_SLIDES[howToIndex];
+  howtoIconEl.textContent = slide.icon;
+  howtoTextEl.textContent = slide.text;
+  howtoDotsEl.innerHTML = HOWTO_SLIDES.map((_, i) => `<span class="howto-dot${i === howToIndex ? " active" : ""}"></span>`).join("");
+  howtoBackBtnEl.disabled = howToIndex === 0 && howToContext !== "welcome";
+  const isLast = howToIndex === HOWTO_SLIDES.length - 1;
+  howtoNextBtnEl.textContent = isLast ? (howToContext === "auto" ? "Zacznij grać" : "Zamknij") : "Dalej";
+}
+
+function howToGoNext() {
+  if (howToIndex < HOWTO_SLIDES.length - 1) {
+    howToIndex++;
+    renderHowToSlide();
+    return;
+  }
+  closeHowToPlay();
+}
+
+function howToGoBack() {
+  if (howToIndex > 0) {
+    howToIndex--;
+    renderHowToSlide();
+    return;
+  }
+  if (howToContext === "welcome") {
+    hideModal(howtoModalEl);
+    showWelcomeScreen();
+  }
+}
+
+function closeHowToPlay() {
+  hideModal(howtoModalEl);
+  if (howToContext === "auto") startGame();
+  else if (howToContext === "welcome") showWelcomeScreen();
+  // context "menu": gra już działa pod spodem — po prostu wracamy do niej
+}
+
+function wireHowToUI() {
+  howtoNextBtnEl.addEventListener("click", howToGoNext);
+  howtoBackBtnEl.addEventListener("click", howToGoBack);
+  document.querySelectorAll('[data-close="howto"]').forEach((el) => el.addEventListener("click", closeHowToPlay));
+
+  let dragStartX = null;
+  howtoCardEl.addEventListener("pointerdown", (e) => {
+    dragStartX = e.clientX;
+  });
+  howtoCardEl.addEventListener("pointerup", (e) => {
+    if (dragStartX == null) return;
+    const dx = e.clientX - dragStartX;
+    dragStartX = null;
+    if (dx < -40) howToGoNext();
+    else if (dx > 40) howToGoBack();
+  });
+  howtoCardEl.addEventListener("pointercancel", () => {
+    dragStartX = null;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Menu (☰)
+// ---------------------------------------------------------------------------
+
+function wireMenuUI() {
+  menuBtnEl.addEventListener("click", () => showModal(menuModalEl));
+  document.querySelectorAll('[data-close="menu"]').forEach((el) => el.addEventListener("click", () => hideModal(menuModalEl)));
+
+  document.getElementById("menu-resume-btn").addEventListener("click", () => hideModal(menuModalEl));
+  document.getElementById("menu-howto-btn").addEventListener("click", () => {
+    hideModal(menuModalEl);
+    openHowToPlay("menu");
+  });
+  document.getElementById("menu-settings-btn").addEventListener("click", () => {
+    hideModal(menuModalEl);
+    showModal(settingsModalEl);
+  });
+  document.getElementById("menu-restart-btn").addEventListener("click", () => {
+    hideModal(menuModalEl);
+    showModal(confirmModalEl);
+  });
+  document.getElementById("menu-title-btn").addEventListener("click", () => {
+    hideModal(menuModalEl);
+    goToTitleScreen();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Ustawienia
+// ---------------------------------------------------------------------------
+
+function updateTextScaleButtons() {
+  textScaleBtnEls.forEach((btn) => btn.classList.toggle("active", Number(btn.dataset.scale) === settings.textScale));
+}
+
+function refreshSettingsUI() {
+  settingMusicOnEl.checked = settings.musicOn;
+  settingMusicVolumeEl.value = String(settings.musicVolume);
+  settingSoundsOnEl.checked = settings.soundsOn;
+  updateTextScaleButtons();
+}
+
+function wireSettingsUI() {
+  refreshSettingsUI();
+
+  document.querySelectorAll('[data-close="settings"]').forEach((el) => el.addEventListener("click", () => hideModal(settingsModalEl)));
+
+  settingMusicOnEl.addEventListener("change", () => {
+    settings.musicOn = settingMusicOnEl.checked;
+    applySettings();
+    saveSettings();
+  });
+  settingMusicVolumeEl.addEventListener("input", () => {
+    settings.musicVolume = Number(settingMusicVolumeEl.value);
+    applySettings();
+    saveSettings();
+  });
+  settingSoundsOnEl.addEventListener("change", () => {
+    settings.soundsOn = settingSoundsOnEl.checked;
+    applySettings();
+    saveSettings();
+  });
+  textScaleBtnEls.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      settings.textScale = Number(btn.dataset.scale);
+      applySettings();
+      saveSettings();
+      updateTextScaleButtons();
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Zdarzenia globalne
 // ---------------------------------------------------------------------------
 
 function wireGlobalEvents() {
@@ -392,28 +713,12 @@ function wireGlobalEvents() {
   // Odblokowanie/wznowienie AudioContext przy pierwszym geście użytkownika (wymóg iOS).
   document.addEventListener("pointerdown", unlockAudio, { capture: true });
 
-  menuBtnEl.addEventListener("click", () => showModal(menuModalEl));
-  document.querySelectorAll('[data-close="menu"]').forEach((el) =>
-    el.addEventListener("click", () => hideModal(menuModalEl))
-  );
-  document.querySelectorAll('[data-close="book"]').forEach((el) =>
-    el.addEventListener("click", () => hideModal(bookModalEl))
-  );
-  document.querySelectorAll('[data-close="confirm"]').forEach((el) =>
-    el.addEventListener("click", () => hideModal(confirmModalEl))
-  );
+  document.querySelectorAll('[data-close="book"]').forEach((el) => el.addEventListener("click", () => hideModal(bookModalEl)));
+  document.querySelectorAll('[data-close="confirm"]').forEach((el) => el.addEventListener("click", () => hideModal(confirmModalEl)));
 
-  document.getElementById("menu-restart-btn").addEventListener("click", () => {
-    hideModal(menuModalEl);
-    showModal(confirmModalEl);
-  });
   document.getElementById("confirm-cancel").addEventListener("click", () => hideModal(confirmModalEl));
   document.getElementById("confirm-restart").addEventListener("click", restartGame);
   document.getElementById("end-restart-btn").addEventListener("click", restartGame);
-
-  spellBtnEls.forEach((btn) => {
-    btn.addEventListener("click", () => showSpellTip(btn));
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -433,14 +738,9 @@ function onWorldCameraChange() {
   updateMinimapViewport();
 }
 
-function init() {
-  state = loadState();
-  cacheDom();
-  buildMinimap();
-  wireMinimapInput();
-
+function startGame() {
   world = initWorld(state, {
-    openBookModal,
+    openBookModal: openBookDetails,
     onChange: onWorldChange,
     onCameraChange: onWorldCameraChange,
   });
@@ -450,9 +750,6 @@ function init() {
   updateMinimapMarkers();
   updateMinimapViewport();
 
-  wireGlobalEvents();
-  updateScale();
-
   // Zabezpieczenie przed utratą czasu gry przy awaryjnym zamknięciu karty.
   setInterval(flushPlayTime, 15000);
 
@@ -460,8 +757,32 @@ function init() {
   checkWinCondition(computeStats(state));
 }
 
+function boot() {
+  cacheDom();
+  buildMinimap();
+  wireMinimapInput();
+  wireGlobalEvents();
+  wireMenuUI();
+  wireSettingsUI();
+  wireWelcomeUI();
+  wireHowToUI();
+  wireHudInfoTooltips();
+  updateScale();
+
+  settings = loadSettings();
+  applySettings();
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("bez-intro") === "1") {
+    state = loadState();
+    startGame();
+  } else {
+    showWelcomeScreen();
+  }
+}
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("DOMContentLoaded", boot);
 } else {
-  init();
+  boot();
 }

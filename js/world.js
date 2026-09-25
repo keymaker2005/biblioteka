@@ -11,7 +11,16 @@
 
 import { LAYOUT, WORLD_W, WORLD_H } from "./layout.js";
 import { BOOKS, EPOCH_BY_ID, GENRE_BY_ID, GENRE_ICONS } from "./books.js";
-import { clamp, mulberry32, hashString, seededShuffle, shadeColor, escapeHtml, brightnessVariant } from "./util.js";
+import {
+  clamp,
+  mulberry32,
+  hashString,
+  seededShuffle,
+  shadeColor,
+  escapeHtml,
+  brightnessVariant,
+  positionFloatingTip,
+} from "./util.js";
 import { createWipeLayer } from "./dust.js";
 import { createBasket } from "./basket.js";
 import {
@@ -28,19 +37,33 @@ import {
 } from "./sound.js";
 
 const LOGICAL_W = 1366;
+const LOGICAL_H = 1024;
 const WORLD_VIEW_W = 1366;
 const WORLD_VIEW_H = 804;
-const EDGE_ZONE = 90;
+const EDGE_ZONE = 120;
+const AUTOSCROLL_MAX_SPEED = 34 * 60; // px/s, szczyt przy krawędzi (~34 px/klatkę @60fps)
 const DRAG_THRESHOLD = 8;
 const INERTIA_DECAY = 0.92;
 const MAX_CAMX = Math.max(0, WORLD_W - WORLD_VIEW_W);
+const IN_VIEW_MARGIN = 220; // margines (px świata) poza oknem, w którym elementy nadal liczą się jako "widoczne"
 
-const BOOK_COVER_W = 72;
-const BOOK_COVER_H = 100;
+const BOOK_COVER_W = 84;
+const BOOK_COVER_H = 118;
 const BOOK_SPINE_W = 46;
 const BOOK_SPINE_H = 148;
 const PAGE_W = 40;
 const PAGE_H = 52;
+
+const SEAM_WALL_H = 612; // wysokość ściany (styk kończy się na linii podłogi)
+
+// Pierwsze pojawienie się każdego typu obiektu w polu widzenia -> jednorazowy dymek.
+const HINT_TEXT = {
+  hideout: "Stuknij — tu może kryć się książka",
+  cobweb: "Zmieć pajęczynę: pocieraj palcem lub rysikiem",
+  page: "Luźna kartka — zanieś ją do teczki na biurku",
+  dust: "Przetrzyj kurz, żeby zobaczyć tytuł",
+  stack: "Zdejmuj książki ze stosu od góry",
+};
 
 const INK_PLACE = 1;
 const INK_EPOCH_BONUS = 1;
@@ -73,12 +96,17 @@ const hideoutElById = {};
 let chandelierGlowEl = null;
 let chandelierEl = null;
 let folderEl = null;
+let floorGlossEl = null;
 
 let camX = 0;
 let activeDrag = null; // {type:'book'|'page'|'pan', ...}
 let inertiaRaf = null;
 let autoScrollRaf = null;
+let autoScrollPointerX = 0;
+let autoScrollLastT = 0;
 let lastWipeSoundAt = 0;
+let ambientEvening = 0;
+let seamPilasterEls = [];
 
 // =========================================================================
 // Geometria — konwersje współrzędnych
@@ -230,17 +258,127 @@ export function computeStats(st) {
   };
 }
 
-const DARKNESS_MAX = 0.55;
+// Sala jest jasna i ciepła od startu — postęp NIE przyciemnia jej ani nie rozjaśnia
+// (dawna mechanika "ciemność maleje z porządkiem" została usunięta). Zamiast tego
+// wyższy porządek dokłada subtelny połysk: jaśniejszy parkiet + wędrujące błyski
+// na złoceniach (patrz `.seam-pilaster`, `.shelf-plaque::after`, `.shelf.has-image::after`
+// w CSS, sterowane zmienną --shine na #world-layer).
+const GLEAM_MAX = 0.5;
 
-function applyDarknessOpacity() {
+function applyOrderGleam() {
   const stats = computeStats(state);
-  if (darknessEl) darknessEl.style.opacity = String(DARKNESS_MAX * (1 - stats.percent / 100));
+  const gleam = clamp(stats.percent / 100, 0, 1) * GLEAM_MAX;
+  if (worldLayerEl) worldLayerEl.style.setProperty("--shine", String(gleam));
+  if (floorGlossEl) floorGlossEl.style.opacity = String(gleam);
 }
 
-/** Aktualizuje krycie ciemności nad światem wg procentu porządku, potem woła hooks.onChange(). */
+/**
+ * Zaczep pod porę dnia (kolejna fala): `evening` 0..1 przyciemnia okna na
+ * niebiesko-granatowo (nakładka `#darkness::before`, sterowana zmienną --evening)
+ * i włącza ciepłe światła. Na razie nikt tego nie woła — sala zawsze jest w dzień.
+ */
+export function setAmbient({ evening = 0 } = {}) {
+  ambientEvening = clamp(evening, 0, 1);
+  if (darknessEl) darknessEl.style.setProperty("--evening", String(ambientEvening));
+  if (ambientEvening > 0.5) {
+    for (const genre of state.completedShelves) lightCandle(genre);
+    if (computeStats(state).percent >= 100) lightChandelier();
+  }
+}
+
+/** Aktualizuje połysk porządku nad światem, potem woła hooks.onChange(). */
 function notifyChange() {
-  applyDarknessOpacity();
+  applyOrderGleam();
   hooks.onChange();
+}
+
+// =========================================================================
+// Widoczność w oknie kamery — gating nieskończonych animacji CSS i podpowiedzi
+// =========================================================================
+
+function isXInView(x, w = 0) {
+  return x + w >= camX - IN_VIEW_MARGIN && x <= camX + WORLD_VIEW_W + IN_VIEW_MARGIN;
+}
+
+/** Nadaje/zdejmuje klasę .in-view elementom z nieskończonymi animacjami CSS,
+ * żeby nie mieliły baterii, gdy są poza oknem świata. */
+function updateInViewClasses() {
+  for (const shelf of LAYOUT.shelves) {
+    const el = shelfElByGenre[shelf.genre];
+    if (el) el.classList.toggle("in-view", isXInView(shelf.x, shelf.w));
+  }
+  for (const c of LAYOUT.candles) {
+    const el = candleFlameByGenre[c.genre];
+    if (el) el.classList.toggle("in-view", isXInView(c.x, 18));
+  }
+  if (chandelierEl) chandelierEl.classList.toggle("in-view", isXInView(LAYOUT.chandelier.x - 45, 90));
+  for (const h of LAYOUT.hideouts) {
+    const el = hideoutElById[h.id];
+    if (el) el.classList.toggle("in-view", isXInView(h.x, h.w));
+  }
+  for (const rt of pageRuntime.values()) {
+    rt.el.classList.toggle("in-view", isXInView(rt.def.x - PAGE_W / 2, PAGE_W));
+  }
+  for (const el of seamPilasterEls) {
+    const x = parseFloat(el.dataset.seamX || "0");
+    el.classList.toggle("in-view", isXInView(x - 30, 60));
+  }
+  maybeShowFirstTimeHints();
+}
+
+// =========================================================================
+// Podpowiedzi przy pierwszym pojawieniu się obiektu w polu widzenia
+// =========================================================================
+
+function checkHintFor(type, items) {
+  if (!state.hintsShown) state.hintsShown = {};
+  if (state.hintsShown[type]) return;
+  for (const it of items) {
+    if (!it) continue;
+    if (isXInView(it.x, it.w || 0)) {
+      state.hintsShown[type] = true;
+      const screenX = worldToScreenX(it.x + (it.w || 0) / 2);
+      const screenY = (it.y || 0) + 70;
+      showMsgTip(HINT_TEXT[type], screenX, screenY, 3600);
+      notifyChange();
+      return;
+    }
+  }
+}
+
+function maybeShowFirstTimeHints() {
+  checkHintFor(
+    "hideout",
+    LAYOUT.hideouts
+      .filter((h) => !state.hideoutsOpened[h.id])
+      .map((h) => ({ x: h.x, y: h.y, w: h.w }))
+  );
+  checkHintFor(
+    "cobweb",
+    LAYOUT.cobwebs
+      .filter((cw) => !state.cobwebsCleared.includes(cw.genre))
+      .map((cw) => {
+        const shelf = LAYOUT.shelfByGenre[cw.genre];
+        return shelf ? { x: shelf.x, y: shelf.y, w: shelf.w } : null;
+      })
+  );
+  checkHintFor(
+    "page",
+    Array.from(pageRuntime.values()).map((rt) => ({ x: rt.def.x - PAGE_W / 2, y: rt.def.y - PAGE_H, w: PAGE_W }))
+  );
+  checkHintFor(
+    "dust",
+    [...dustyBookIds]
+      .filter((id) => !state.dustCleared.includes(id))
+      .map((id) => {
+        const rt = bookRuntime.get(id);
+        return rt && rt.location === "world" ? { x: rt.x - BOOK_COVER_W / 2, y: rt.y - BOOK_COVER_H, w: BOOK_COVER_W } : null;
+      })
+  );
+  checkHintFor(
+    "stack",
+    LAYOUT.stacks.map((st) => ({ x: st.x - BOOK_COVER_W / 2, y: st.y - BOOK_COVER_H, w: BOOK_COVER_W }))
+  );
 }
 
 // =========================================================================
@@ -292,15 +430,53 @@ function buildBays() {
     img.src = bay.image;
   }
 
-  // Pilastry między wnękami (maskują styk teł).
+  buildSeams();
+  buildFloorGloss();
+}
+
+/**
+ * Styki między wnękami (x = 1240, 2480, 3720): element `.seam` na całą wysokość
+ * świata. Część ścienna (y 0..612) to pilaster z assets/pilaster.png (77×900,
+ * przezroczyste tło) wyśrodkowany w słupku, wysokość dopasowana do ściany (612px),
+ * szerokość ~54px (proporcje zachowane) — fallback CSS (dębowy gradient + cienka
+ * złota linia), gdy pliku brak. Część podłogowa (y 612..804) to miękkie przenikanie:
+ * pasek w kolorze parkietu z maską zanikającą na obu krawędziach, żeby nie było
+ * twardej linii między sąsiednimi podłogami.
+ */
+function buildSeams() {
   for (let i = 1; i < LAYOUT.bays.length; i++) {
     const bay = LAYOUT.bays[i];
-    const pil = document.createElement("div");
-    pil.className = "pilaster";
-    pil.style.left = `${bay.x - LAYOUT.pilasterWidth / 2}px`;
-    pil.style.width = `${LAYOUT.pilasterWidth}px`;
-    worldLayerEl.appendChild(pil);
+    const seam = document.createElement("div");
+    seam.className = "seam";
+    seam.style.left = `${bay.x - LAYOUT.pilasterWidth / 2}px`;
+    seam.style.width = `${LAYOUT.pilasterWidth}px`;
+    seam.innerHTML = `<div class="seam-pilaster"></div><div class="seam-floor"></div>`;
+    worldLayerEl.appendChild(seam);
+
+    const pilasterEl = seam.querySelector(".seam-pilaster");
+    pilasterEl.dataset.seamX = String(bay.x);
+    seamPilasterEls.push(pilasterEl);
+
+    const img = new Image();
+    img.onload = () => {
+      pilasterEl.style.backgroundImage = `url("assets/pilaster.png")`;
+      pilasterEl.classList.add("has-image");
+    };
+    img.onerror = () => {
+      /* brak pliku — zostaje zastępczy CSS (dębowy gradient) */
+    };
+    img.src = "assets/pilaster.png";
   }
+}
+
+/** Prosta nakładka połysku na podłodze (y > 610) — opacity rośnie z porządkiem sali. */
+function buildFloorGloss() {
+  floorGlossEl = document.createElement("div");
+  floorGlossEl.id = "floor-gloss";
+  floorGlossEl.style.top = `${SEAM_WALL_H - 2}px`;
+  floorGlossEl.style.height = `${WORLD_H - SEAM_WALL_H + 2}px`;
+  floorGlossEl.style.width = `${WORLD_W}px`;
+  worldLayerEl.appendChild(floorGlossEl);
 }
 
 function buildFurnitureFallback() {
@@ -362,16 +538,26 @@ function buildShelves() {
       img.src = shelf.image;
     }
 
-    // Hover na plakietce epoki pokazuje jej nazwę (rysik/mysz, bez wciśniętego przycisku).
+    // Plakietka epoki: hover (rysik/mysz) LUB stuknięcie (palec) pokazują, co ona znaczy.
     shelfSlotElsByGenre[shelf.genre].forEach((slotEl, i) => {
       const badge = slotEl.querySelector(".slot-badge");
-      badge.addEventListener("pointermove", (e) => {
-        if (e.buttons !== 0 || (e.pointerType !== "pen" && e.pointerType !== "mouse")) return;
+      const showEpochTip = () => {
         const epoch = EPOCH_BY_ID[shelf.slots[i].epoch];
         const r = getLogicalRect(badge);
-        showHoverHtml(`<strong>${escapeHtml(epoch.name)}</strong>`, r.x + r.width / 2, r.y - 4);
+        showHoverHtml(`<strong>Epoka: ${escapeHtml(epoch.name)}</strong><br>Połóż tu książkę z tej epoki, a dostaniesz bonus ✦`, r.x + r.width / 2, r.y);
+      };
+      badge.addEventListener("pointermove", (e) => {
+        if (e.buttons !== 0 || (e.pointerType !== "pen" && e.pointerType !== "mouse")) return;
+        showEpochTip();
       });
       badge.addEventListener("pointerleave", hideHoverTip);
+      badge.addEventListener("pointerdown", (e) => {
+        if (e.pointerType !== "touch") return;
+        e.stopPropagation();
+        showEpochTip();
+        clearTimeout(hoverHideTimer);
+        hoverHideTimer = setTimeout(hideHoverTip, 3000);
+      });
     });
   }
 }
@@ -430,6 +616,7 @@ function buildCobwebs() {
     const shelfEl = shelfElByGenre[cw.genre];
     const host = document.createElement("div");
     host.className = `cobweb-host cobweb-${cw.corner}`;
+    host.innerHTML = `<span class="cobweb-badge">🧹</span>`;
     shelfEl.appendChild(host);
     cobwebByGenre[cw.genre] = { host, cleared: false };
   }
@@ -439,15 +626,17 @@ function attachCobweb(genre) {
   const entry = cobwebByGenre[genre];
   if (!entry || entry.layer) return;
   entry.layer = createWipeLayer(entry.host, {
-    width: 110,
-    height: 110,
-    cols: 6,
-    rows: 6,
-    threshold: 0.7,
-    radius: 13,
+    width: 150,
+    height: 150,
+    cols: 5,
+    rows: 5,
+    threshold: 0.5,
+    radius: 24,
     texture: "cobweb",
     onCleared: () => {
       if (!state.cobwebsCleared.includes(genre)) state.cobwebsCleared.push(genre);
+      const badge = entry.host.querySelector(".cobweb-badge");
+      if (badge) badge.remove();
       playDustGone();
       notifyChange();
     },
@@ -464,7 +653,7 @@ function buildHideouts() {
     el.style.top = `${h.y}px`;
     el.style.width = `${h.w}px`;
     el.style.height = `${h.h}px`;
-    el.innerHTML = `<span class="hideout-sparkle">✨</span>`;
+    el.innerHTML = `<span class="hideout-badge">🔍</span>`;
     worldLayerEl.appendChild(el);
     hideoutElById[h.id] = el;
   }
@@ -618,6 +807,9 @@ function renderBookOnShelf(rt, slotIndex, initial) {
   applyTransform(rt.el, c.cx - sp.w / 2, c.cyBottom - sp.h, 0, 1);
   if (rt.el.parentElement !== worldLayerEl) worldLayerEl.appendChild(rt.el);
   updateSlotVisual(shelf.genre, slotIndex, true);
+  // Grzbiet: napis tak duży, jak pozwala szerokość TEGO regału (przegródki mają różną szerokość).
+  const titleEl = rt.el.querySelector(".spine-title");
+  if (titleEl) titleEl.style.fontSize = `${clamp(Math.round(sp.w * 0.42), 12, 20)}px`;
 }
 
 function renderBookInBasket(rt, slotIndex, initial) {
@@ -660,8 +852,8 @@ function maybeAttachDust(rt) {
     height: BOOK_COVER_H,
     cols: 6,
     rows: 8,
-    threshold: 0.7,
-    radius: 11,
+    threshold: 0.6,
+    radius: 16,
     texture: "dust",
     onCleared: () => {
       state.dustCleared.push(rt.id);
@@ -718,9 +910,8 @@ function isBookAccessible(bookId) {
 let hoverHideTimer = null;
 function showHoverHtml(html, screenX, screenY) {
   hoverTipEl.innerHTML = html;
-  hoverTipEl.style.left = `${screenX}px`;
-  hoverTipEl.style.top = `${screenY}px`;
   hoverTipEl.classList.remove("hidden");
+  positionFloatingTip(hoverTipEl, screenX, screenY, { preferAbove: true, gap: 10, boundsW: LOGICAL_W, boundsH: LOGICAL_H });
   clearTimeout(hoverHideTimer);
 }
 function hideHoverTip() {
@@ -728,13 +919,12 @@ function hideHoverTip() {
 }
 
 let msgTipTimer = null;
-function showMsgTip(text, screenX, screenY) {
+function showMsgTip(text, screenX, screenY, duration = 2000) {
   msgTipEl.textContent = text;
-  msgTipEl.style.left = `${screenX}px`;
-  msgTipEl.style.top = `${screenY}px`;
   msgTipEl.classList.remove("hidden");
+  positionFloatingTip(msgTipEl, screenX, screenY, { preferAbove: true, gap: 10, boundsW: LOGICAL_W, boundsH: LOGICAL_H });
   clearTimeout(msgTipTimer);
-  msgTipTimer = setTimeout(() => msgTipEl.classList.add("hidden"), 2000);
+  msgTipTimer = setTimeout(() => msgTipEl.classList.add("hidden"), duration);
 }
 
 let bannerTimer = null;
@@ -890,6 +1080,7 @@ function cancelInertia() {
 function cancelAutoScroll() {
   if (autoScrollRaf) cancelAnimationFrame(autoScrollRaf);
   autoScrollRaf = null;
+  autoScrollLastT = 0;
 }
 
 export function setCamX(x, opts = {}) {
@@ -898,33 +1089,50 @@ export function setCamX(x, opts = {}) {
   state.camX = camX;
   worldLayerEl.style.transform = `translateX(${-camX}px)`;
   repositionGlows();
+  updateInViewClasses();
   if (!opts.silent) hooks.onCameraChange();
 }
 
-function autoScrollTick(clientX) {
-  const scenePt = toSceneCoords(clientX, 0);
+// Auto-przewijanie pod niesioną książką/kartką: strefa krawędzi EDGE_ZONE (120px),
+// prędkość rośnie z krzywą speed² (łagodne przyspieszanie), szczyt ~34 px/klatkę
+// (AUTOSCROLL_MAX_SPEED px/s licząc realny czas między klatkami, nie licznik klatek —
+// dzięki temu tempo nie zależy od odświeżania ekranu). `autoScrollPointerX` trzyma
+// NAJŚWIEŻSZĄ pozycję wskaźnika (aktualizowaną w maybeAutoScroll przy każdym ruchu),
+// więc pętla rAF zawsze liczy prędkość na bieżąco — nie zamyka się w domknięciu
+// starej wartości z chwili startu (dawny błąd: pętla raz wystartowana ignorowała
+// dalszy ruch palca/rysika, dopóki nie wyszedł ze strefy krawędzi).
+function autoScrollTick(ts) {
+  if (!autoScrollLastT) autoScrollLastT = ts;
+  const dt = Math.min(50, ts - autoScrollLastT);
+  autoScrollLastT = ts;
+
+  const scenePt = toSceneCoords(autoScrollPointerX, 0);
   let dir = 0;
-  let speed = 0;
+  let speedFrac = 0;
   if (scenePt.x < EDGE_ZONE) {
     dir = -1;
-    speed = (EDGE_ZONE - scenePt.x) / EDGE_ZONE;
+    speedFrac = (EDGE_ZONE - scenePt.x) / EDGE_ZONE;
   } else if (scenePt.x > WORLD_VIEW_W - EDGE_ZONE) {
     dir = 1;
-    speed = (scenePt.x - (WORLD_VIEW_W - EDGE_ZONE)) / EDGE_ZONE;
+    speedFrac = (scenePt.x - (WORLD_VIEW_W - EDGE_ZONE)) / EDGE_ZONE;
   }
   if (dir === 0) {
     cancelAutoScroll();
     return;
   }
-  setCamX(camX + dir * speed * 18);
-  autoScrollRaf = requestAnimationFrame(() => autoScrollTick(clientX));
+  speedFrac = clamp(speedFrac, 0, 1);
+  const speedPxPerSec = speedFrac * speedFrac * AUTOSCROLL_MAX_SPEED;
+  setCamX(camX + dir * speedPxPerSec * (dt / 1000));
+  autoScrollRaf = requestAnimationFrame(autoScrollTick);
 }
 
 function maybeAutoScroll(clientX) {
+  autoScrollPointerX = clientX;
   const scenePt = toSceneCoords(clientX, 0);
   const nearEdge = scenePt.x < EDGE_ZONE || scenePt.x > WORLD_VIEW_W - EDGE_ZONE;
   if (nearEdge && !autoScrollRaf) {
-    autoScrollTick(clientX);
+    autoScrollLastT = 0;
+    autoScrollRaf = requestAnimationFrame(autoScrollTick);
   } else if (!nearEdge) {
     cancelAutoScroll();
   }
@@ -1434,6 +1642,8 @@ function onHideoutActivate(hideoutEl) {
 export function initWorld(gameState, gameHooks) {
   state = gameState;
   hooks = { openBookModal() {}, onChange() {}, onCameraChange() {}, ...gameHooks };
+  if (!state.hintsShown) state.hintsShown = {};
+  seamPilasterEls = [];
 
   cacheDom();
 
@@ -1504,10 +1714,10 @@ export function initWorld(gameState, gameHooks) {
     document.querySelectorAll(".no-anim").forEach((el) => el.classList.remove("no-anim"));
   });
 
-  applyDarknessOpacity();
+  applyOrderGleam();
   if (computeStats(state).percent >= 100) {
     lightChandelier();
   }
 
-  return { setCamX };
+  return { setCamX, setAmbient };
 }

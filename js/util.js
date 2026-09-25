@@ -72,3 +72,31 @@ export function brightnessVariant(id) {
 export function rotationFor(text, spread = 12) {
   return (hashString(text) % (spread * 10 + 1)) / 10 - spread / 2;
 }
+
+/** Ogranicza prostokąt (x,y,w,h) tak, by mieścił się w boundsW×boundsH z marginesem. */
+export function clampRectToBounds(x, y, w, h, boundsW, boundsH, margin = 12) {
+  const cx = clamp(x, margin, Math.max(margin, boundsW - margin - w));
+  const cy = clamp(y, margin, Math.max(margin, boundsH - margin - h));
+  return { x: cx, y: cy };
+}
+
+/**
+ * Pozycjonuje dymek (już z ustawioną treścią i odsłonięty — trzeba go zmierzyć)
+ * tak, by mieścił się w scenie boundsW×boundsH. Domyślnie próbuje pokazać się
+ * NAD punktem zaczepienia (anchorX, anchorY); jeśli by się nie zmieścił,
+ * przerzuca się pod spód. Zawsze dociska do krawędzi z marginesem `margin`.
+ */
+export function positionFloatingTip(el, anchorX, anchorY, opts = {}) {
+  const { preferAbove = true, gap = 8, margin = 12, boundsW = 1366, boundsH = 1024 } = opts;
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+  let y = preferAbove ? anchorY - h - gap : anchorY + gap;
+  if (preferAbove && y < margin) {
+    y = anchorY + gap; // nie mieści się nad — pokaż pod
+  } else if (!preferAbove && y + h > boundsH - margin) {
+    y = anchorY - h - gap; // nie mieści się pod — pokaż nad
+  }
+  const clamped = clampRectToBounds(anchorX - w / 2, y, w, h, boundsW, boundsH, margin);
+  el.style.left = `${clamped.x}px`;
+  el.style.top = `${clamped.y}px`;
+}

@@ -33,33 +33,13 @@
             <button id="menu-btn" class="icon-btn" aria-label="Menu" title="Menu">☰</button>
             <h1 id="room-title">Sala Załuskich</h1>
           </div>
-          <div class="topbar-center">
-            <div id="order-percent" aria-live="polite">Porządek: 0%</div>
-            <div id="minimap" aria-label="Mini-mapa sali">
-              <div id="minimap-track"></div>
-              <div id="minimap-viewport"></div>
+          <div id="minimap" aria-label="Mini-mapa sali">
+            <div id="minimap-track">
+              <div class="minimap-bay-divider" style="left:25%"></div>
+              <div class="minimap-bay-divider" style="left:50%"></div>
+              <div class="minimap-bay-divider" style="left:75%"></div>
             </div>
-          </div>
-          <div class="topbar-right">
-            <div id="inkwell" title="Atrament">
-              <span class="inkwell-icon">🖋</span>
-              <span id="ink-count">0</span>
-              <span class="ink-max">/20</span>
-            </div>
-            <div id="spells">
-              <button class="spell-btn locked" data-spell="wglad" data-unlock="1" aria-label="Czar: Wgląd">
-                <span class="spell-icon">👁</span>
-                <span class="spell-lock">🔒</span>
-              </button>
-              <button class="spell-btn locked" data-spell="przywolanie" data-unlock="2" aria-label="Czar: Przywołanie">
-                <span class="spell-icon">✦</span>
-                <span class="spell-lock">🔒</span>
-              </button>
-              <button class="spell-btn locked" data-spell="skrzat" data-unlock="3" aria-label="Czar: Skrzat biblioteczny">
-                <span class="spell-icon">🧙</span>
-                <span class="spell-lock">🔒</span>
-              </button>
-            </div>
+            <div id="minimap-viewport"></div>
           </div>
         </header>
 
@@ -69,14 +49,56 @@
           <div id="darkness"></div>
         </main>
 
-        <!-- Koszyk na dole: 6 miejsc na okładki -->
-        <footer id="cart-area">
+        <!-- Dolny pasek: czary (lewo), koszyk (środek), atrament + porządek (prawo) -->
+        <footer id="bottom-bar">
+          <div id="bottom-spells">
+            <div class="spell-slot">
+              <button class="spell-btn locked" data-spell="wglad" data-unlock="1" aria-label="Czar: Wgląd">
+                <span class="spell-icon">👁</span>
+                <span class="spell-lock">🔒</span>
+              </button>
+              <span class="spell-caption">Wgląd</span>
+            </div>
+            <div class="spell-slot">
+              <button class="spell-btn locked" data-spell="przywolanie" data-unlock="2" aria-label="Czar: Przywołanie">
+                <span class="spell-icon">✦</span>
+                <span class="spell-lock">🔒</span>
+              </button>
+              <span class="spell-caption">Przywołanie</span>
+            </div>
+            <div class="spell-slot">
+              <button class="spell-btn locked" data-spell="skrzat" data-unlock="3" aria-label="Czar: Skrzat biblioteczny">
+                <span class="spell-icon">🧙</span>
+                <span class="spell-lock">🔒</span>
+              </button>
+              <span class="spell-caption">Skrzat</span>
+            </div>
+          </div>
+
           <div id="cart" aria-label="Koszyk na książki">
-            <span class="cart-label">Koszyk</span>
+            <div class="basket-handle"></div>
+            <div class="basket-weave"></div>
             <span id="basket-counter">0 / 6</span>
           </div>
-          <div id="basket-layer"></div>
+
+          <div id="bottom-right">
+            <button id="inkwell" aria-label="Atrament" title="Atrament">
+              <span class="inkwell-icon">🖋</span>
+              <span class="inkwell-gauge"><span id="inkwell-fill" class="inkwell-fill"></span></span>
+              <span class="inkwell-label"><span id="ink-count">0</span><span class="ink-max">/20</span></span>
+            </button>
+            <button id="order-ring" aria-label="Porządek sali">
+              <svg viewBox="0 0 72 72">
+                <circle class="ring-track" cx="36" cy="36" r="30" />
+                <circle class="ring-fill" id="order-ring-fill" cx="36" cy="36" r="30" />
+              </svg>
+              <span id="order-ring-percent">0%</span>
+            </button>
+          </div>
         </footer>
+
+        <!-- Warstwa okładek w koszyku — w koordynatach SCENY (nie świata), nad paskiem dolnym -->
+        <div id="basket-layer"></div>
 
         <!-- Warstwa aktywnego przeciągania — nad wszystkim, poza obcięciem okna świata -->
         <div id="drag-layer"></div>
@@ -84,13 +106,13 @@
         <!-- Chmurka podglądu przy unoszeniu rysika/myszy -->
         <div id="hover-tip" class="hidden"></div>
 
-        <!-- Chmurka komunikatów (pomyłka, pełny koszyk, zablokowany stos, kurz) -->
+        <!-- Chmurka komunikatów (pomyłka, pełny koszyk, zablokowany stos, kurz, podpowiedzi) -->
         <div id="msg-tip" class="hidden"></div>
 
         <!-- Baner ukończenia regału / ładu chronologicznego -->
         <div id="shelf-banner" class="hidden"></div>
 
-        <!-- Dymek czaru (zablokowany w tym etapie) -->
+        <!-- Dymek informacyjny HUD (czary, atrament, porządek) -->
         <div id="spell-tip" class="hidden"></div>
 
         <!-- Karta książki -->
@@ -126,13 +148,87 @@
           </div>
         </div>
 
-        <!-- Menu (opcja: Zacznij od nowa) -->
+        <!-- Menu (☰) -->
         <div id="menu-modal" class="modal hidden" role="dialog" aria-modal="true">
           <div class="modal-backdrop" data-close="menu"></div>
           <div class="modal-card menu-card">
             <button class="modal-close" data-close="menu" aria-label="Zamknij">✕</button>
             <h2>Menu</h2>
+            <button id="menu-resume-btn" class="btn btn-block">Wróć do gry</button>
+            <button id="menu-howto-btn" class="btn btn-block">Jak grać</button>
+            <button id="menu-settings-btn" class="btn btn-block">Ustawienia</button>
             <button id="menu-restart-btn" class="btn btn-danger btn-block">Zacznij od nowa</button>
+            <button id="menu-title-btn" class="btn btn-ghost btn-block">Ekran tytułowy</button>
+          </div>
+        </div>
+
+        <!-- Ustawienia -->
+        <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true">
+          <div class="modal-backdrop" data-close="settings"></div>
+          <div class="modal-card settings-card">
+            <button class="modal-close" data-close="settings" aria-label="Zamknij">✕</button>
+            <h2>Ustawienia</h2>
+
+            <div class="settings-row">
+              <span class="settings-label">Muzyka</span>
+              <label class="switch">
+                <input type="checkbox" id="setting-music-on" />
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+              </label>
+              <input type="range" id="setting-music-volume" class="settings-range" min="0" max="100" value="70" aria-label="Głośność muzyki" />
+            </div>
+
+            <div class="settings-row">
+              <span class="settings-label">Dźwięki</span>
+              <label class="switch">
+                <input type="checkbox" id="setting-sounds-on" />
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+              </label>
+            </div>
+
+            <div class="settings-row settings-row-col">
+              <span class="settings-label">Rozmiar napisów</span>
+              <div class="segmented" id="setting-text-scale">
+                <button type="button" class="segmented-btn" data-scale="1">Normalny</button>
+                <button type="button" class="segmented-btn" data-scale="1.2">Duży</button>
+                <button type="button" class="segmented-btn" data-scale="1.4">Bardzo duży</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- "Jak grać" — 6 kart -->
+        <div id="howto-modal" class="modal hidden" role="dialog" aria-modal="true">
+          <div class="modal-backdrop" data-close="howto"></div>
+          <div class="modal-card howto-card" id="howto-card">
+            <button class="modal-close" data-close="howto" aria-label="Zamknij">✕</button>
+            <div class="howto-icon" id="howto-icon">🏛️</div>
+            <p class="howto-text" id="howto-text"></p>
+            <div class="howto-dots" id="howto-dots"></div>
+            <div class="howto-actions">
+              <button id="howto-back-btn" class="btn btn-ghost">Wstecz</button>
+              <button id="howto-next-btn" class="btn btn-primary">Dalej</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ekran powitalny -->
+        <div id="welcome-modal" class="modal hidden" role="dialog" aria-modal="true">
+          <div class="welcome-bg"></div>
+          <div class="modal-backdrop"></div>
+          <div class="welcome-card">
+            <div class="welcome-flower welcome-flower-tl" aria-hidden="true"></div>
+            <div class="welcome-flower welcome-flower-tr" aria-hidden="true"></div>
+            <div class="welcome-flower welcome-flower-bl" aria-hidden="true"></div>
+            <div class="welcome-flower welcome-flower-br" aria-hidden="true"></div>
+            <h1 class="welcome-title">Biblioteka</h1>
+            <p class="welcome-subtitle">Sala Załuskich</p>
+            <div class="welcome-actions">
+              <button id="welcome-continue-btn" class="btn btn-primary btn-block hidden">Kontynuuj</button>
+              <button id="welcome-newgame-btn" class="btn btn-block">Nowa gra</button>
+              <button id="welcome-howto-btn" class="btn btn-block">Jak grać</button>
+              <button id="welcome-settings-btn" class="btn btn-ghost btn-block">Ustawienia</button>
+            </div>
           </div>
         </div>
 

@@ -4,6 +4,26 @@
 // dlatego kontekst tworzymy leniwie w unlock().
 
 let ctx = null;
+let soundsOn = true;
+
+// Zaczep pod muzykę (etap 4 — sama muzyka nie gra jeszcze, tylko zapamiętujemy ustawienie).
+let musicSettings = { on: true, volume: 0.7 };
+
+export function setMusicSettings(opts = {}) {
+  musicSettings = { ...musicSettings, ...opts };
+}
+
+export function getMusicSettings() {
+  return { ...musicSettings };
+}
+
+export function setSoundsEnabled(on) {
+  soundsOn = !!on;
+}
+
+export function getSoundsEnabled() {
+  return soundsOn;
+}
 
 /** Tworzy AudioContext przy pierwszym dotknięciu ekranu i go wznawia, jeśli jest uśpiony. */
 export function unlockAudio() {
@@ -24,6 +44,10 @@ export function unlockAudio() {
 
 function now() {
   return ctx ? ctx.currentTime : 0;
+}
+
+function shouldPlay() {
+  return !!ctx && soundsOn;
 }
 
 /** Prosty obwiedniowy generator tonu (oscylator + gałka głośności z ADSR w pigułce). */
@@ -76,20 +100,20 @@ function noiseKnock({ startAt = 0, duration = 0.07, gain = 0.35, filterFreq = 90
 
 /** Dobre odłożenie książki: krótki drewniany stuk. */
 export function playPlaceGood() {
-  if (!ctx) return;
+  if (!shouldPlay()) return;
   noiseKnock({ duration: 0.09, gain: 0.4, filterFreq: 750 });
   tone({ freq: 180, duration: 0.12, type: "triangle", gain: 0.12, startAt: 0.01 });
 }
 
 /** Pomyłka: łagodny, niski ton — bez poczucia kary. */
 export function playMistake() {
-  if (!ctx) return;
+  if (!shouldPlay()) return;
   tone({ freq: 160, freqEnd: 110, duration: 0.35, type: "sine", gain: 0.15 });
 }
 
 /** Ukończenie regału: krótki akord. */
 export function playShelfComplete() {
-  if (!ctx) return;
+  if (!shouldPlay()) return;
   const chord = [261.63, 329.63, 392.0, 523.25]; // C-dur, z oktawą na górze
   chord.forEach((freq, i) => {
     tone({ freq, duration: 0.9, type: "sine", gain: 0.1, startAt: i * 0.03 });
@@ -98,46 +122,46 @@ export function playShelfComplete() {
 
 /** Krótki cichy szum przecierania kurzu/pajęczyny — wywoływany co kilka ruchów podczas gestu. */
 export function playWipe() {
-  if (!ctx) return;
+  if (!shouldPlay()) return;
   noiseKnock({ duration: 0.1, gain: 0.09, filterFreq: 2600 });
 }
 
 /** Kurz/pajęczyna znikają do końca — miękki, jasny szum. */
 export function playDustGone() {
-  if (!ctx) return;
+  if (!shouldPlay()) return;
   noiseKnock({ duration: 0.28, gain: 0.16, filterFreq: 1800 });
   tone({ freq: 660, freqEnd: 990, duration: 0.22, type: "sine", gain: 0.06, startAt: 0.02 });
 }
 
 /** Otwarcie szuflady biurka. */
 export function playDrawer() {
-  if (!ctx) return;
+  if (!shouldPlay()) return;
   noiseKnock({ duration: 0.22, gain: 0.22, filterFreq: 420 });
 }
 
 /** Szelest kryjówki (fotel, zasłona) albo odłożenie kartki do teczki. */
 export function playPaper() {
-  if (!ctx) return;
+  if (!shouldPlay()) return;
   noiseKnock({ duration: 0.16, gain: 0.18, filterFreq: 3200 });
 }
 
 /** Zapalenie kinkietu/żyrandola: ciepłe, krótkie „puff”. */
 export function playCandle() {
-  if (!ctx) return;
+  if (!shouldPlay()) return;
   tone({ freq: 520, freqEnd: 300, duration: 0.3, type: "sine", gain: 0.1 });
   noiseKnock({ duration: 0.06, gain: 0.12, filterFreq: 1200, startAt: 0.01 });
 }
 
 /** Bonus „Dobra epoka!” — mała złota iskra dźwiękowa. */
 export function playEpochBonus() {
-  if (!ctx) return;
+  if (!shouldPlay()) return;
   tone({ freq: 880, duration: 0.16, type: "sine", gain: 0.09 });
   tone({ freq: 1320, duration: 0.18, type: "sine", gain: 0.07, startAt: 0.05 });
 }
 
 /** Bonus „Ład chronologiczny” — cały regał ma dobrą epokę: mały arpeggio. */
 export function playChronologyStar() {
-  if (!ctx) return;
+  if (!shouldPlay()) return;
   [523.25, 659.25, 784.0, 1046.5].forEach((freq, i) => {
     tone({ freq, duration: 0.5, type: "sine", gain: 0.09, startAt: i * 0.05 });
   });

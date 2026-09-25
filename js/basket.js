@@ -5,7 +5,7 @@
 // Ten moduł nie wie nic o książkach — tylko trzyma, które z 6 miejsc są zajęte,
 // i podaje ich środki w logicznych współrzędnych sceny.
 
-const SLOT_PAD_X = 90;
+const SLOT_PAD_X = 70;
 
 export function createBasket(cartEl, counterEl, getLogicalRect, slotsCount = 6) {
   const slots = new Array(slotsCount).fill(null);
