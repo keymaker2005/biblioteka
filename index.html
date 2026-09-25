@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#1a0f0a" />
+<title>Biblioteka — Sala Załuskich</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- Nakładka pokazywana, gdy iPad trzymany jest pionowo -->
+    <div id="rotate-overlay" class="hidden" aria-hidden="true">
+      <div class="rotate-card">
+        <div class="rotate-icon">⟳</div>
+        <p>Obróć iPada poziomo</p>
+      </div>
+    </div>
+
+    <!-- Scena o stałym rozmiarze logicznym 1366×1024, skalowana przez JS (transform: scale) -->
+    <div id="scene-wrap">
+      <div id="scene">
+        <div id="vignette"></div>
+
+        <header id="topbar">
+          <div class="topbar-left">
+            <button id="menu-btn" class="icon-btn" aria-label="Menu" title="Menu">☰</button>
+            <h1 id="room-title">Sala Załuskich</h1>
+          </div>
+          <div class="topbar-center">
+            <div id="progress" aria-live="polite">0 / 30</div>
+          </div>
+          <div class="topbar-right">
+            <div id="inkwell" title="Atrament">
+              <span class="inkwell-icon">🖋</span>
+              <span id="ink-count">0</span>
+              <span class="ink-max">/20</span>
+            </div>
+            <div id="spells">
+              <button class="spell-btn locked" data-spell="wglad" data-unlock="1" aria-label="Czar: Wgląd">
+                <span class="spell-icon">👁</span>
+                <span class="spell-lock">🔒</span>
+              </button>
+              <button class="spell-btn locked" data-spell="przywolanie" data-unlock="2" aria-label="Czar: Przywołanie">
+                <span class="spell-icon">✦</span>
+                <span class="spell-lock">🔒</span>
+              </button>
+              <button class="spell-btn locked" data-spell="skrzat" data-unlock="3" aria-label="Czar: Skrzat biblioteczny">
+                <span class="spell-icon">🧙</span>
+                <span class="spell-lock">🔒</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main id="shelves-area">
+          <!-- 5 regałów renderowanych przez JS (js/game.js) -->
+        </main>
+
+        <footer id="cart-area">
+          <div id="cart" aria-label="Wózek z książkami">
+            <!-- Książki na wózku renderowane przez JS -->
+          </div>
+        </footer>
+
+        <!-- Warstwa interaktywna: wszystkie książki (wózek + regały), wspólny układ współrzędnych -->
+        <div id="books-layer"></div>
+
+        <!-- Chmurka podglądu przy unoszeniu rysika/myszy -->
+        <div id="hover-tip" class="hidden"></div>
+
+        <!-- Chmurka po nieudanym odłożeniu -->
+        <div id="mistake-tip" class="hidden">Ta książka szuka innej epoki</div>
+
+        <!-- Baner ukończenia regału -->
+        <div id="shelf-banner" class="hidden"></div>
+
+        <!-- Dymek czaru (zablokowany w Etapie 1) -->
+        <div id="spell-tip" class="hidden"></div>
+
+        <!-- Karta książki -->
+        <div id="book-modal" class="modal hidden" role="dialog" aria-modal="true">
+          <div class="modal-backdrop" data-close="book"></div>
+          <div class="modal-card book-card">
+            <button class="modal-close" data-close="book" aria-label="Zamknij">✕</button>
+            <div class="book-card-cover" id="book-card-cover">
+              <div class="book-card-mark" id="book-card-mark"></div>
+            </div>
+            <div class="book-card-info">
+              <h2 id="book-card-title"></h2>
+              <p id="book-card-author"></p>
+              <p id="book-card-year"></p>
+              <p id="book-card-series" class="hidden"></p>
+              <p id="book-card-epoch" class="hidden"></p>
+              <p id="book-card-hint" class="hint-text"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal potwierdzenia "Zacznij od nowa" -->
+        <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true">
+          <div class="modal-backdrop" data-close="confirm"></div>
+          <div class="modal-card confirm-card">
+            <h2>Zacząć od nowa?</h2>
+            <p>Cały postęp w tej sali zostanie wymazany. Tej operacji nie da się cofnąć.</p>
+            <div class="confirm-actions">
+              <button id="confirm-cancel" class="btn btn-ghost">Anuluj</button>
+              <button id="confirm-restart" class="btn btn-danger">Tak, zacznij od nowa</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Menu (opcja: Zacznij od nowa) -->
+        <div id="menu-modal" class="modal hidden" role="dialog" aria-modal="true">
+          <div class="modal-backdrop" data-close="menu"></div>
+          <div class="modal-card menu-card">
+            <button class="modal-close" data-close="menu" aria-label="Zamknij">✕</button>
+            <h2>Menu</h2>
+            <button id="menu-restart-btn" class="btn btn-danger btn-block">Zacznij od nowa</button>
+          </div>
+        </div>
+
+        <!-- Ekran końcowy -->
+        <div id="end-modal" class="modal hidden" role="dialog" aria-modal="true">
+          <div class="modal-backdrop"></div>
+          <div class="modal-card end-card">
+            <h2>Sala Załuskich lśni porządkiem!</h2>
+            <p id="end-mistakes"></p>
+            <p id="end-time"></p>
+            <button id="end-restart-btn" class="btn btn-primary btn-block">Zacznij od nowa</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
