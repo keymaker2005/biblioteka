@@ -6,6 +6,19 @@ Szczegóły decyzji: [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
+## 0.6 — Więcej zadań w sali (28.09.2026)
+
+**Nowe**
+- **Prośby czytelników:** na biurku przy kominku leżą rewersy (czerwone „!” = ktoś czeka). Stuknij je, przeczytaj prośbę („Poproszę coś Prusa”, „Szukam powieści o kupcu zakochanym w arystokratce”…) i połóż właściwą książkę na rewersach. Czytelnik ją przejrzy i odda do koszyka. 6 próśb, każda za 3 krople atramentu.
+- **Naprawa książek:** 6 książek ma wyrwaną kartkę (naderwany róg i znaczek 📄). Luźne kartki z podłogi to ich fragmenty — stuknij kartkę, przeczytaj cytat i przeciągnij ją na książkę, z której pochodzi. Kartkę można nieść w koszyku.
+- **Pieczęcie Załuskich:** w sali ukryto 6 lakowych pieczęci z herbem Junosza (baranem) — przy lustrze, w kominku, na ramie obrazu, na schodach, na parapecie, przy dywanie. Komplet odsłania kartę z historią Biblioteki Załuskich.
+- **Porządki w otoczeniu:** przetrzyj zakurzone lustro, szybę obrazu i oba okna, zamieć trzy kupki liści nawianych przez okno.
+- **Lista „Zadania”** (przycisk u góry): wszystkie rodzaje zadań z postępem w jednym miejscu.
+- Nowe zadania liczą się do porządku sali; „Jak grać” ma karty o rewersach, kartkach, pieczęciach i porządkach.
+
+**Zmienione**
+- Teczka na biurku stała się tacką na rewersy; kartek nie odkłada się już do teczki, tylko do ich książek.
+
 ## 0.5 — Działające czary i prawdziwa fizyka (28.09.2026)
 
 **Nowe**

@@ -60,7 +60,7 @@ const SEAM_WALL_H = 612; // wysokość ściany (styk kończy się na linii podł
 const HINT_TEXT = {
   hideout: "Stuknij — tu może kryć się książka",
   cobweb: "Zmieć pajęczynę: pocieraj palcem lub rysikiem",
-  page: "Luźna kartka — zanieś ją do teczki na biurku",
+  page: "Luźna kartka — stuknij, przeczytaj fragment i włóż ją do książki, z której wypadła",
   dust: "Przetrzyj kurz, żeby zobaczyć tytuł",
   stack: "Zdejmuj książki ze stosu od góry",
 };
@@ -225,9 +225,22 @@ export function computeStats(st) {
   }
   const dustCleared = st.dustCleared.length;
   const cobwebsCleared = st.cobwebsCleared.length;
-  const pagesFiled = st.pagesFiled.length;
-  const points = placedBooks * 2 + dustCleared * 1 + cobwebsCleared * 2 + pagesFiled * 1;
-  const totalPoints = BOOKS.length * 2 + LAYOUT.dusty * 1 + LAYOUT.cobwebs.length * 2 + LAYOUT.pages.length * 1;
+  const pagesFiled = st.pagesFiled.length; // od 0.6: kartka wróciła do swojej książki (= naprawa)
+  // Zadania z wersji 0.6 (js/zadania.js): prośby czytelników, pieczęcie, porządki.
+  const z = st.zadania || {};
+  const requestsDone = Math.min(LAYOUT.zadania.requestsTotal, z.requestsDone || 0);
+  const sealsFound = (z.seals || []).length;
+  const choresDone = (z.chores || []).length;
+  const points =
+    placedBooks * 2 + dustCleared * 1 + cobwebsCleared * 2 + pagesFiled * 2 + requestsDone * 2 + sealsFound * 1 + choresDone * 1;
+  const totalPoints =
+    BOOKS.length * 2 +
+    LAYOUT.dusty * 1 +
+    LAYOUT.cobwebs.length * 2 +
+    LAYOUT.pages.length * 2 +
+    LAYOUT.zadania.requestsTotal * 2 +
+    LAYOUT.zadania.seals.length * 1 +
+    LAYOUT.zadania.chores.length * 1;
   const percent = totalPoints > 0 ? Math.round((points / totalPoints) * 100) : 0;
 
   const chronologyGenres = [];
@@ -253,6 +266,12 @@ export function computeStats(st) {
     totalCobwebs: LAYOUT.cobwebs.length,
     pagesFiled,
     totalPages: LAYOUT.pages.length,
+    requestsDone,
+    totalRequests: LAYOUT.zadania.requestsTotal,
+    sealsFound,
+    totalSeals: LAYOUT.zadania.seals.length,
+    choresDone,
+    totalChores: LAYOUT.zadania.chores.length,
     percent: clamp(percent, 0, 100),
     chronologyGenres,
   };
@@ -698,7 +717,50 @@ function buildFolder() {
 
 function updateFolderCounter() {
   if (!folderEl) return;
-  folderEl.querySelector(".folder-counter").textContent = `${state.pagesFiled.length}/${LAYOUT.pages.length}`;
+  const c = folderEl.querySelector(".folder-counter"); // od 0.6 teczkę przejmuje js/zadania.js (rewersy)
+  if (c) c.textContent = `${state.pagesFiled.length}/${LAYOUT.pages.length}`;
+}
+
+// ---------------------------------------------------------------------------
+// Zaczepy dla js/zadania.js (od 0.6): upuszczenie książki/kartki i stuknięcie kartki
+// ---------------------------------------------------------------------------
+
+const dropHandlers = [];
+let pageTapHandler = null;
+
+/**
+ * fn({ kind: "book"|"page", id, clientX, clientY, worldPt, scenePt, fromBasket }) →
+ *   null (nie moje — gra działa dalej jak zwykle) albo
+ *   { then: "basket"|"home" } (książka) / { consumed: true } (kartka) / { reject: "komunikat" }.
+ */
+export function registerDropHandler(fn) {
+  dropHandlers.push(fn);
+}
+
+export function setPageTapHandler(fn) {
+  pageTapHandler = fn;
+}
+
+function runDropHandlers(info) {
+  for (const h of dropHandlers) {
+    const r = h(info);
+    if (r) return r;
+  }
+  return null;
+}
+
+/** Kartka wróciła do swojej książki — znika z sali/koszyka i liczy się jako naprawa. */
+function consumePage(rt) {
+  if (rt.location === "basket") {
+    basket.clear(state.pagesInBasket[rt.id]);
+    delete state.pagesInBasket[rt.id];
+  }
+  if (!state.pagesFiled.includes(rt.id)) state.pagesFiled.push(rt.id);
+  rt.el.remove();
+  pageRuntime.delete(rt.id);
+  playPaper();
+  updateFolderCounter();
+  notifyChange();
 }
 
 function buildPages() {
@@ -1678,6 +1740,28 @@ function finishBookDrag(e) {
   clearDragHighlights();
 
   const scenePt = toSceneCoords(e.clientX, e.clientY);
+
+  // Zadania 0.6 (np. rewersy czytelników na biurku) mają pierwszeństwo przed koszykiem i regałami.
+  const hr = runDropHandlers({
+    kind: "book",
+    id: rt.id,
+    clientX: e.clientX,
+    clientY: e.clientY,
+    worldPt: toWorldCoords(e.clientX, e.clientY),
+    scenePt,
+    fromBasket: drag.originLocation === "basket",
+  });
+  if (hr) {
+    if (hr.reject) showMsgTip(hr.reject, scenePt.x, Math.max(90, scenePt.y - 30), 2800);
+    if (hr.then === "basket" && rt.location !== "basket" && !basket.isFull()) {
+      placeBookInBasket(rt);
+      return;
+    }
+    returnBookHome(rt);
+    notifyChange();
+    return;
+  }
+
   const basketRect = basket.rect();
   const inBasket =
     scenePt.x >= basketRect.x &&
@@ -1723,26 +1807,35 @@ function finishPageDrag(e) {
     /* ignorowane */
   }
 
-  if (!drag.moved) return;
+  if (!drag.moved) {
+    if (pageTapHandler) pageTapHandler(rt.id); // od 0.6: stuknięcie kartki pokazuje jej fragment
+    return;
+  }
   rt.el.classList.remove("dragging");
   clearDragHighlights();
 
   const scenePt = toSceneCoords(e.clientX, e.clientY);
   const worldPt = { x: scenePt.x + camX, y: scenePt.y - 70 };
+
+  // Od 0.6 kartka wraca do SWOJEJ książki (js/zadania.js decyduje, czy pasuje).
+  const hr = runDropHandlers({ kind: "page", id: rt.id, clientX: e.clientX, clientY: e.clientY, worldPt, scenePt });
+  if (hr) {
+    if (hr.consumed) {
+      consumePage(rt);
+      return;
+    }
+    if (hr.reject) {
+      showMsgTip(hr.reject, scenePt.x, Math.max(90, scenePt.y - 30), 2800);
+      returnPageHome(rt);
+      return;
+    }
+  }
+
   const f = LAYOUT.folder;
   const inFolder = worldPt.x >= f.x && worldPt.x <= f.x + f.w && worldPt.y >= f.y && worldPt.y <= f.y + f.h;
-
   if (inFolder) {
-    if (rt.location === "basket") {
-      basket.clear(state.pagesInBasket[rt.id]);
-      delete state.pagesInBasket[rt.id];
-    }
-    state.pagesFiled.push(rt.id);
-    rt.el.remove();
-    pageRuntime.delete(rt.id);
-    playPaper();
-    updateFolderCounter();
-    notifyChange();
+    showMsgTip("Ta kartka wypadła z którejś książki — przeciągnij ją na właściwą książkę.", scenePt.x, Math.max(90, scenePt.y - 30), 3000);
+    returnPageHome(rt);
     return;
   }
 

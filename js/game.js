@@ -14,6 +14,7 @@ import { openBookInHand } from "./ksiazka.js";
 import { initKlimat, onCameraChange as klimatOnCamera, setPora } from "./klimat.js";
 import { startMusic, setDucked } from "./muzyka.js";
 import { initCzary, consumeSummonTarget, refreshSpellButtons } from "./czary.js";
+import { initZadania, onCameraChangeZadania, showTaskList } from "./zadania.js";
 import { unlockAudio, setSoundsEnabled, setMusicSettings } from "./sound.js";
 import { clamp, shadeColor, brightnessVariant, formatTime, positionFloatingTip } from "./util.js";
 
@@ -37,7 +38,9 @@ const HOWTO_SLIDES = [
   { icon: "📚", text: "Zbieraj książki do koszyka i odnoś je na regały. Regały są według gatunków — ikona na okładce podpowiada gatunek." },
   { icon: "🧹", text: "Kurz i pajęczyny: pocieraj palcem lub rysikiem." },
   { icon: "🔍", text: "Szukaj kryjówek — szuflada, fotel i zasłona oznaczone lupą mogą coś skrywać. Stosy zdejmuj od góry." },
-  { icon: "🗂️", text: "Luźne kartki zanieś do teczki na biurku — możesz je też po drodze wrzucić do koszyka." },
+  { icon: "📄", text: "Luźne kartki wypadły z książek. Stuknij kartkę, przeczytaj fragment i przeciągnij ją na książkę, z której pochodzi — tak ją naprawisz. Kartki mieszczą się też w koszyku." },
+  { icon: "📜", text: "Na biurku przy kominku czytelnicy zostawiają rewersy z prośbami. Stuknij je, znajdź właściwą książkę i połóż ją na rewersach." },
+  { icon: "🔴", text: "W sali ukryto 6 pieczęci Załuskich. Szukaj ich uważnie — komplet odsłoni historię biblioteki. Porządki: przetrzyj lustro, obraz i szyby, zamieć liście." },
   { icon: "✦", text: "Bonus: plakietka pod miejscem na półce to epoka — dobra epoka daje ✦ i atrament. Porządek sali rośnie, a sala nabiera blasku." },
   { icon: "💧", text: "Czary: każdy ukończony regał odblokowuje kolejny (Wgląd, Przywołanie, Skrzat). Płacisz za nie atramentem — liczba w kropelce przy czarze to jego koszt." },
 ];
@@ -111,6 +114,7 @@ function loadState() {
       pagesFiled: Array.isArray(parsed.pagesFiled) ? parsed.pagesFiled : [],
       pagesInBasket: parsed.pagesInBasket && typeof parsed.pagesInBasket === "object" ? parsed.pagesInBasket : {},
       spells: parsed.spells && typeof parsed.spells === "object" ? parsed.spells : {},
+      zadania: parsed.zadania && typeof parsed.zadania === "object" ? parsed.zadania : {},
       hideoutsOpened: { ...fallback.hideoutsOpened, ...(parsed.hideoutsOpened || {}) },
       hintsShown: { ...fallback.hintsShown, ...(parsed.hintsShown || {}) },
       ink: clamp(Number(parsed.ink) || 0, 0, 20),
@@ -793,6 +797,7 @@ function onWorldChange() {
 function onWorldCameraChange() {
   updateMinimapViewport();
   klimatOnCamera();
+  onCameraChangeZadania();
 }
 
 function startGame() {
@@ -802,6 +807,9 @@ function startGame() {
     onCameraChange: onWorldCameraChange,
   });
   initKlimat(getWorldApi(), { pora: settings.pora });
+  initZadania(getWorldApi());
+  const tasksBtn = document.getElementById("tasks-btn");
+  if (tasksBtn) tasksBtn.addEventListener("click", showTaskList);
   initCzary(getWorldApi(), {
     buttons: spellBtnEls,
     showTip: (btn, html) => showHudTip(btn, html),

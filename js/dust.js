@@ -162,8 +162,65 @@ export function createWipeLayer(hostEl, opts) {
 function drawTexture(ctx, w, h, kind) {
   if (kind === "cobweb") {
     drawCobwebTexture(ctx, w, h);
+  } else if (kind === "grime") {
+    drawGrimeTexture(ctx, w, h);
+  } else if (kind === "leaves") {
+    drawLeavesTexture(ctx, w, h);
   } else {
     drawDustTexture(ctx, w, h);
+  }
+}
+
+/** Brudna szyba / lustro (od 0.6): półprzezroczysty szaro-brązowy nalot ze smugami — przedmiot pod spodem widać, ale matowo. */
+function drawGrimeTexture(ctx, w, h) {
+  ctx.fillStyle = "rgba(150,138,112,0.55)";
+  ctx.fillRect(0, 0, w, h);
+  for (let i = 0; i < 26; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const len = 20 + Math.random() * 60;
+    ctx.strokeStyle = `rgba(${Math.random() > 0.5 ? "95,85,65" : "205,196,170"},${0.12 + Math.random() * 0.18})`;
+    ctx.lineWidth = 3 + Math.random() * 8;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.quadraticCurveTo(x + len * 0.4, y + (Math.random() - 0.5) * 20, x + len, y + (Math.random() - 0.5) * 30);
+    ctx.stroke();
+  }
+  for (let i = 0; i < 160; i++) {
+    ctx.fillStyle = `rgba(80,72,56,${0.1 + Math.random() * 0.2})`;
+    ctx.beginPath();
+    ctx.arc(Math.random() * w, Math.random() * h, Math.random() * 1.4 + 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** Kupka jesiennych liści na podłodze (od 0.6) — zamiata się tym samym gestem co kurz. */
+function drawLeavesTexture(ctx, w, h) {
+  ctx.clearRect(0, 0, w, h);
+  const colors = ["#d9782a", "#e8a33a", "#c4561f", "#f2c14e", "#b8872f", "#a8471a"];
+  for (let i = 0; i < 55; i++) {
+    // Gęściej w środku, rzadziej przy brzegach — kupka, nie prostokąt.
+    const t = Math.random() * Math.PI * 2;
+    const r = Math.sqrt(Math.random());
+    const x = w / 2 + Math.cos(t) * r * w * 0.46;
+    const y = h / 2 + Math.sin(t) * r * h * 0.4;
+    const s = 5 + Math.random() * 7;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.random() * Math.PI * 2);
+    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+    ctx.globalAlpha = 0.95;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, s, s * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(90,45,10,0.7)";
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(-s, 0);
+    ctx.lineTo(s, 0);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 

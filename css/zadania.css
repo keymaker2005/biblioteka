@@ -1,0 +1,221 @@
+/* css/zadania.css — wersja 0.6: rewersy, naprawa książek, pieczęcie, porządki, lista zadań */
+
+/* ---------- Przycisk „Zadania” na górnym pasku ---------- */
+
+.zadania-btn {
+  margin-left: 14px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--gold);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--gold-light);
+  font: inherit;
+  font-size: calc(16px * var(--text-scale, 1));
+  cursor: pointer;
+  white-space: nowrap;
+}
+.zadania-btn:active {
+  transform: scale(0.96);
+}
+
+/* ---------- Pergaminowe okienko ---------- */
+
+.zadania-karta {
+  position: absolute;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.zadania-karta.hidden {
+  display: none;
+}
+.zk-tlo {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 10, 4, 0.55);
+}
+.zk-pergamin {
+  position: relative;
+  width: 640px;
+  max-height: 820px;
+  overflow-y: auto;
+  padding: 34px 40px 28px;
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.35), transparent 60%),
+    linear-gradient(180deg, #f3e6c4, #e6d3a3);
+  border: 2px solid #b08a3e;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), inset 0 0 40px rgba(140, 100, 40, 0.25);
+  color: #2e1d0b;
+  font-size: calc(19px * var(--text-scale, 1));
+  line-height: 1.5;
+}
+.zk-tytul {
+  margin: 0 0 14px;
+  font-size: calc(28px * var(--text-scale, 1));
+  text-align: center;
+}
+.zk-x {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(90, 60, 20, 0.12);
+  font-size: 20px;
+  cursor: pointer;
+}
+.zk-ok {
+  display: block;
+  margin: 18px auto 0;
+  min-width: 180px;
+}
+.zk-rewers,
+.zk-fragment {
+  font-style: italic;
+  font-size: calc(22px * var(--text-scale, 1));
+  padding: 12px 18px;
+  border-left: 4px solid #b08a3e;
+  background: rgba(255, 255, 255, 0.35);
+}
+.zk-podpis {
+  text-align: right;
+  margin-top: 4px;
+}
+.zk-rada {
+  font-size: calc(16px * var(--text-scale, 1));
+  opacity: 0.85;
+}
+.zk-zrodla {
+  font-size: calc(14px * var(--text-scale, 1));
+  opacity: 0.7;
+}
+.zk-lista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.zk-lista li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 4px;
+  border-bottom: 1px dashed rgba(120, 80, 30, 0.35);
+}
+.zk-lista li.zrobione {
+  color: #2e6b2e;
+}
+.zk-lista li.zrobione strong::after {
+  content: " ✓";
+}
+
+/* ---------- Rewersy na biurku (dawna teczka) ---------- */
+
+#folder.rewersy {
+  cursor: pointer;
+  background: linear-gradient(180deg, #efe0bb, #d8c190);
+  border-color: #8a6a34;
+}
+#folder.rewersy .folder-label {
+  font-size: 13px;
+}
+.rewers-licznik {
+  font-size: 12px;
+  color: #3a2a10;
+}
+.rewers-znak {
+  position: absolute;
+  top: -14px;
+  right: -12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #c23b22;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 30px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  animation: rewersPuls 1.6s ease-in-out infinite;
+}
+.rewers-znak.gotowe {
+  background: #2e7d32;
+  animation: none;
+}
+@keyframes rewersPuls {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+
+/* ---------- Uszkodzona książka: naderwany róg i znaczek brakującej kartki ---------- */
+
+.book-item.uszkodzona::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(225deg, #e9dcc0 0 45%, rgba(0, 0, 0, 0.35) 46%, transparent 60%);
+  z-index: 3;
+  pointer-events: none;
+}
+.book-item.uszkodzona::after {
+  content: "📄";
+  position: absolute;
+  left: 50%;
+  bottom: 4px; /* wewnątrz okładki — okładka może przycinać to, co wystaje */
+  transform: translateX(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #7a2a14;
+  border: 1.5px solid #f0d9a8;
+  font-size: 12px;
+  line-height: 22px;
+  text-align: center;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* ---------- Pieczęcie Załuskich ---------- */
+
+.pieczec {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  z-index: 12;
+  cursor: pointer;
+  touch-action: none;
+  opacity: 0.88;
+  transition: transform 0.8s ease, opacity 0.8s ease;
+}
+.pieczec::before {
+  /* większe pole dotyku niż sama pieczęć */
+  content: "";
+  position: absolute;
+  inset: -12px;
+}
+.pieczec img {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
+.pieczec.znaleziona {
+  transform: translateY(-40px) scale(2.2);
+  opacity: 0;
+}
+
+/* ---------- Porządki: przecieranie lustra, szyb, zamiatanie liści ---------- */
+
+.porzadek {
+  position: absolute;
+  z-index: 3;
+  overflow: hidden;
+}

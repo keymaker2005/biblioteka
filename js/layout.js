@@ -303,10 +303,47 @@ const interactables = {
 };
 
 // ---------------------------------------------------------------------------
+// Wersja 0.6 — nowe zadania w sali (js/zadania.js)
+// ---------------------------------------------------------------------------
+
+const zadania = {
+  // Naprawa książek: każda luźna kartka wypadła z jednej, konkretnej książki.
+  pageBooks: {
+    "page-1": "pan-tadeusz",
+    "page-2": "wesele",
+    "page-3": "lalka",
+    "page-4": "kamizelka",
+    "page-5": "zemsta",
+    "page-6": "kamienie-na-szaniec",
+  },
+  // Pieczęcie Załuskich — ukryte na namalowanych przedmiotach (środek pieczęci, średnica ~30 px).
+  seals: [
+    { id: "lustro", x: BAY3_X + 566, y: 330 }, // dolna rama lustra nad kominkiem
+    { id: "kominek", x: BAY3_X + 670, y: 598 }, // w popiele paleniska
+    { id: "obraz", x: BAY2_X + 560, y: 396 }, // dolny róg ramy obrazu w galerii
+    { id: "schody", x: BAY4_X + 956, y: 392 }, // rzeźbiony słupek schodów
+    { id: "parapet", x: BAY1_X + 238, y: 487 }, // róg parapetu w czytelni
+    { id: "dywan", x: BAY3_X + 165, y: 764 }, // róg dywanu przed kominkiem
+  ],
+  // Porządki w otoczeniu: prostokąty do przetarcia/zamiecenia.
+  chores: [
+    { id: "lustro", label: "Lustro nad kominkiem", texture: "grime", x: BAY3_X + 561, y: 188, w: 118, h: 150, round: true },
+    { id: "obraz", label: "Szyba obrazu w galerii", texture: "grime", x: BAY2_X + 561, y: 204, w: 115, h: 178 },
+    { id: "okno-1", label: "Okno w czytelni", texture: "grime", x: BAY1_X + 58, y: 60, w: 198, h: 424, arch: 99 },
+    { id: "okno-4", label: "Okno pod antresolą", texture: "grime", x: BAY4_X + 222, y: 66, w: 190, h: 418, arch: 95 },
+    { id: "liscie-1", label: "Liście pod oknem w czytelni", texture: "leaves", x: BAY1_X + 150, y: 668, w: 170, h: 70 },
+    { id: "liscie-2", label: "Liście pod oknem przy schodach", texture: "leaves", x: BAY4_X + 250, y: 672, w: 180, h: 70 },
+    { id: "liscie-3", label: "Liście przy drzwiach galerii", texture: "leaves", x: BAY2_X + 60, y: 700, w: 150, h: 64 },
+  ],
+  requestsTotal: 6,
+};
+
+// ---------------------------------------------------------------------------
 // Eksport
 // ---------------------------------------------------------------------------
 
 export const LAYOUT = {
+  zadania,
   windows,
   interactables,
   world: { width: WORLD_W, height: WORLD_H },
