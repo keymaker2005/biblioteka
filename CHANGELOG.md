@@ -6,6 +6,13 @@ Szczegóły decyzji: [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
+## 0.6.1 — Płynna zasłona, światło lampki na swoim miejscu (28.09.2026)
+
+**Naprawione (po teście 0.5/0.6)**
+- **Zasłona klatkowała w ruchu.** Dwie przyczyny: animacja fizyki liczona tylko 30 razy na sekundę oraz cień zasłony jako filtr, który Safari przeliczał przy każdej klatce. Teraz fizyka liczy się w każdej klatce ekranu (60/120 Hz), a cień rysuje się razem z materiałem.
+- **Światło lampki nie pasowało do klosza.** Wymierzone na powiększeniu i narysowane od nowa: miękki stożek zaczyna się dokładnie przy dolnej krawędzi zielonego klosza, pod kloszem świeci żarówka, na blacie leży plama światła; zniknęła prostokątna krawędź poświaty.
+- Muzyka — potwierdzone przez właściciela, że po 0.5 już się nie zacina.
+
 ## 0.6 — Więcej zadań w sali (28.09.2026)
 
 **Nowe**

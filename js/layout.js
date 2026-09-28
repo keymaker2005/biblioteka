@@ -292,8 +292,9 @@ const windows = [
 ];
 
 const interactables = {
-  // Lampa z zielonym kloszem na stole czytelni: klosz ~ (933, 395), blat ~ y 508.
-  lamp: { x: BAY1_X + 893, y: 372, w: 82, h: 160, shade: { x: BAY1_X + 933, y: 398 }, tableY: 508 },
+  // Lampa z zielonym kloszem na stole czytelni — wymierzone na powiększeniu (0.6.1):
+  // środek lampy x 932, dolna krawędź klosza y 421 (szerokość 69), czubek klosza y 394, blat y 510.
+  lamp: { x: BAY1_X + 893, y: 372, w: 82, h: 160, shade: { x: BAY1_X + 932, y: 407 }, rimY: 421, rimW: 69, tableY: 510 },
   // Palenisko kominka (otwór) i miejsce na ogień.
   fireplace: { x: BAY3_X + 515, y: 443, w: 210, h: 167, fireY: 600 },
   // Zegar na gzymsie kominka.

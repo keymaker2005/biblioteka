@@ -365,10 +365,51 @@ function applyLamp(on) {
   lampEls.light.classList.toggle("on", on);
 }
 
+// Światło lampy (od 0.6.1) rysowane jednym statycznym SVG, dopasowanym do klosza
+// wymierzonego na ilustracji: dolna krawędź klosza (rimY, szerokość rimW) → blat (tableY).
+// Miękkie krawędzie daje rozmycie SVG liczone raz (element się nie rusza).
+const LAMP_SVG_TOP = 80;
+
+function lampSvg(L) {
+  const W = 420;
+  const H = L.tableY - L.rimY + 70;
+  const cx = W / 2;
+  const top = LAMP_SVG_TOP; // miejsce nad krawędzią klosza na rozmytą poświatę szkła (inaczej widać ucięty prostokąt)
+  const rimL = cx - L.rimW / 2 + 4;
+  const rimR = cx + L.rimW / 2 - 4;
+  const tableY = top + (L.tableY - L.rimY);
+  return `
+<svg width="${W}" height="${H + top}" viewBox="0 0 ${W} ${H + top}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- obszar filtra liczony w pikselach (userSpaceOnUse) na całe SVG — przy małych elipsach
+         domyślne ±50% ucinało rozmycie w widoczny prostokąt -->
+    <filter id="lampa-miekko" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H + top}"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="lampa-mocno" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H + top}"><feGaussianBlur stdDeviation="14"/></filter>
+    <linearGradient id="lampa-stozek" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(255,226,150)" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="rgb(255,200,110)" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+  <!-- poświata zielonego szkła klosza -->
+  <ellipse cx="${cx}" cy="${top - 12}" rx="${L.rimW * 0.55}" ry="16" fill="rgb(150,255,180)" opacity="0.3" filter="url(#lampa-mocno)"/>
+  <!-- stożek światła od krawędzi klosza do blatu -->
+  <polygon points="${rimL},${top} ${rimR},${top} ${cx + 150},${tableY} ${cx - 150},${tableY}" fill="url(#lampa-stozek)" filter="url(#lampa-miekko)"/>
+  <!-- żarówka widoczna pod krawędzią klosza -->
+  <ellipse cx="${cx}" cy="${top + 2}" rx="${L.rimW / 2 - 6}" ry="6" fill="rgb(255,244,200)" opacity="0.9" filter="url(#lampa-miekko)"/>
+  <!-- plama światła na blacie -->
+  <ellipse cx="${cx}" cy="${tableY + 2}" rx="175" ry="26" fill="rgb(255,215,135)" opacity="0.55" filter="url(#lampa-mocno)"/>
+</svg>`;
+}
+
 function buildLamp() {
   const L = LAYOUT.interactables.lamp;
-  const light = el("klimat-lampa-swiatlo", { x: L.shade.x - 260, y: L.shade.y - 120, w: 520, h: L.tableY - L.shade.y + 220 });
-  light.innerHTML = `<div class="klosz"></div><div class="stozek"></div><div class="blat"></div>`;
+  const light = el("klimat-lampa-swiatlo", {
+    x: L.shade.x - 210,
+    y: L.rimY - LAMP_SVG_TOP,
+    w: 420,
+    h: L.tableY - L.rimY + 70 + LAMP_SVG_TOP,
+  });
+  light.innerHTML = lampSvg(L);
   const hot = el("klimat-hotspot", L);
   hot.setAttribute("aria-label", "Lampa");
   lampEls = { light, hot };
@@ -683,13 +724,31 @@ function stepCurtain(dt) {
   return curtain.moving;
 }
 
+// Sylwetka zasłony (czarna, liczona RAZ po wczytaniu obrazka) — z niej rysujemy cień
+// na ścianie. Wcześniej cień dawał filtr CSS drop-shadow, który Safari przeliczał przy
+// każdej klatce ruchu — to była druga przyczyna klatkowania.
+let curtainSilhouette = null;
+
+function makeSilhouette(img) {
+  const c = document.createElement("canvas");
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  const g = c.getContext("2d");
+  g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = "source-in";
+  g.fillStyle = "#000";
+  g.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+
 function drawCurtain() {
   const { g, img } = curtain;
   if (!g || !img || !img.complete) return;
+  if (!curtainSilhouette) curtainSilhouette = makeSilhouette(img);
   const C = LAYOUT.interactables.curtain;
   const W = C.w + CURT_MARGIN * 2;
   g.clearRect(0, 0, W, C.h);
-  const rows = 110;
+  const rows = 72;
   const rowH = C.h / rows;
   const srcRowH = img.naturalHeight / rows;
   const dy = C.h / (CURT_N - 1);
@@ -699,20 +758,33 @@ function drawCurtain() {
     const t = f - i;
     return curtain.u[i] * (1 - t) + curtain.u[i + 1] * t;
   };
+  const offs = new Float32Array(rows + 1);
+  for (let r = 0; r <= rows; r++) offs[r] = uAt(Math.min(C.h - 1, r * rowH));
+
+  // 1) cień na ścianie: przesunięta, półprzezroczysta sylwetka
+  g.globalAlpha = 0.22;
+  for (let r = 0; r < rows; r++) {
+    const off = (offs[r] + offs[r + 1]) / 2;
+    g.drawImage(curtainSilhouette, 0, r * srcRowH, img.naturalWidth, srcRowH + 0.6, CURT_MARGIN + off + 5, r * rowH + 7, C.w, rowH + 0.6);
+  }
+  g.globalAlpha = 1;
+
+  // 2) materiał + fałdy (ciemniej tam, gdzie tkanina najbardziej wygięta)
   for (let r = 0; r < rows; r++) {
     const y = r * rowH;
-    const off = uAt(y + rowH / 2);
+    const off = (offs[r] + offs[r + 1]) / 2;
     g.drawImage(img, 0, r * srcRowH, img.naturalWidth, srcRowH + 0.6, CURT_MARGIN + off, y, C.w, rowH + 0.6);
-    // Fałdy: im bardziej materiał wygięty, tym ciemniej (cień) — tylko na samej tkaninie.
-    const slope = Math.abs(uAt(Math.min(C.h - 1, y + rowH)) - uAt(y)) / rowH;
+  }
+  g.globalCompositeOperation = "source-atop";
+  for (let r = 0; r < rows; r++) {
+    const slope = Math.abs(offs[r + 1] - offs[r]) / rowH;
     if (slope > 0.02) {
-      g.save();
-      g.globalCompositeOperation = "source-atop";
+      const off = (offs[r] + offs[r + 1]) / 2;
       g.fillStyle = `rgba(20,0,0,${Math.min(0.28, slope * 0.9)})`;
-      g.fillRect(CURT_MARGIN + off - 2, y, C.w + 4, rowH + 0.6);
-      g.restore();
+      g.fillRect(CURT_MARGIN + off - 2, r * rowH, C.w + 4, rowH + 0.6);
     }
   }
+  g.globalCompositeOperation = "source-over";
 }
 
 function buildCurtain() {
@@ -817,18 +889,27 @@ function ensureLoop() {
   rafId = requestAnimationFrame(tick);
 }
 
+// Fizyka (żyrandol, zasłona) liczy się w KAŻDEJ klatce ekranu (60/120 Hz) — przy 30 kl./s
+// szybki ruch materiału „klatkował” (zgłoszenie 0.6). Liście za oknami wystarczy rysować ~30 kl./s.
+let lastWinT = 0;
+
 function tick(ts) {
   rafId = null;
   if (!needsLoop()) return;
-  if (!lastT) lastT = ts;
-  const elapsed = ts - lastT;
-  if (elapsed >= 30) {
-    const dt = Math.min(0.05, elapsed / 1000);
+  if (!lastT) {
     lastT = ts;
-    stepWindows(dt, ts / 1000);
+    lastWinT = ts;
+  }
+  const dt = Math.min(0.05, (ts - lastT) / 1000);
+  lastT = ts;
+  if (dt > 0 && physicsActive) {
     const pendMoving = stepPendulum(dt);
     const curtMoving = stepCurtain(dt);
     physicsActive = pendMoving || curtMoving;
+  }
+  if (ts - lastWinT >= 33) {
+    stepWindows(Math.min(0.05, (ts - lastWinT) / 1000), ts / 1000);
+    lastWinT = ts;
   }
   rafId = requestAnimationFrame(tick);
 }
