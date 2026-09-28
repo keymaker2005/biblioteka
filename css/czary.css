@@ -1,0 +1,124 @@
+/* css/czary.css — czary (od 0.5): stany przycisków, Wgląd, Przywołanie, Skrzat */
+
+/* ---------- Przyciski czarów ---------- */
+
+.spell-cost {
+  position: absolute;
+  left: -4px;
+  bottom: -4px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 5px;
+  border-radius: 13px;
+  background: #1a2a4a;
+  border: 1.5px solid #8fb3ff;
+  color: #eaf1ff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 23px;
+  text-align: center;
+}
+.spell-cost::before {
+  content: "💧";
+  font-size: 10px;
+  margin-right: 1px;
+}
+.spell-btn.locked .spell-cost {
+  display: none;
+}
+.spell-btn.unlocked {
+  filter: none;
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(255, 210, 110, 0.55);
+  animation: czarGotowy 2.8s ease-in-out infinite;
+}
+@keyframes czarGotowy {
+  0%, 100% { box-shadow: 0 0 0 2px var(--gold), 0 0 8px rgba(255, 210, 110, 0.35); }
+  50% { box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(255, 210, 110, 0.75); }
+}
+.spell-btn.poor {
+  animation: none;
+  box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.5);
+  opacity: 0.8;
+}
+/* Pierścień postępu: działa (złoty, maleje) albo odpoczywa (szary, rośnie). */
+.spell-btn.active::after,
+.spell-btn.cooling::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: conic-gradient(var(--ring, #ffd66b) calc(var(--p, 0) * 360deg), transparent 0);
+  -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%);
+  mask: radial-gradient(circle, transparent 58%, #000 60%);
+  pointer-events: none;
+}
+.spell-btn.cooling {
+  animation: none;
+  opacity: 0.6;
+  --ring: rgba(220, 220, 220, 0.8);
+}
+.spell-btn.active {
+  animation: none;
+  box-shadow: 0 0 0 3px #ffd66b, 0 0 26px rgba(255, 214, 107, 0.9);
+}
+
+/* ---------- Wgląd: kolor gatunku na książkach i regałach ---------- */
+
+#scene.wglad .book-item[data-genre="poezja"] { --gc: 230, 193, 74; }
+#scene.wglad .book-item[data-genre="dramat"] { --gc: 222, 92, 76; }
+#scene.wglad .book-item[data-genre="powiesc"] { --gc: 86, 150, 230; }
+#scene.wglad .book-item[data-genre="nowela"] { --gc: 96, 190, 110; }
+#scene.wglad .book-item[data-genre="faktu"] { --gc: 186, 128, 226; }
+#scene.wglad .book-item {
+  box-shadow: 0 0 0 3px rgba(var(--gc), 1), 0 0 22px 6px rgba(var(--gc), 0.75);
+  animation: wgladPuls 1.6s ease-in-out infinite;
+}
+@keyframes wgladPuls {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(var(--gc), 1), 0 0 14px 3px rgba(var(--gc), 0.55); }
+  50% { box-shadow: 0 0 0 3px rgba(var(--gc), 1), 0 0 26px 8px rgba(var(--gc), 0.85); }
+}
+#scene.wglad .shelf[data-genre="poezja"] { filter: drop-shadow(0 0 10px rgb(230, 193, 74)); }
+#scene.wglad .shelf[data-genre="dramat"] { filter: drop-shadow(0 0 10px rgb(222, 92, 76)); }
+#scene.wglad .shelf[data-genre="powiesc"] { filter: drop-shadow(0 0 10px rgb(86, 150, 230)); }
+#scene.wglad .shelf[data-genre="nowela"] { filter: drop-shadow(0 0 10px rgb(96, 190, 110)); }
+#scene.wglad .shelf[data-genre="faktu"] { filter: drop-shadow(0 0 10px rgb(186, 128, 226)); }
+
+/* ---------- Przywołanie: książka „wlatuje” do koszyka ---------- */
+
+.book-item.summoned {
+  animation: przywolana 0.9s ease-out;
+}
+@keyframes przywolana {
+  0% { filter: brightness(2.2) drop-shadow(0 0 16px #bfe0ff); opacity: 0.2; }
+  60% { filter: brightness(1.4) drop-shadow(0 0 10px #bfe0ff); opacity: 1; }
+  100% { filter: none; opacity: 1; }
+}
+
+/* ---------- Skrzat ---------- */
+
+.skrzat {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 62px;
+  height: 120px; /* assets/skrzat.png 124×240 */
+  z-index: 14;
+  pointer-events: none;
+  opacity: 0;
+  transition: transform 0.9s cubic-bezier(0.45, 0, 0.3, 1.2), opacity 0.4s ease;
+}
+.skrzat.visible {
+  opacity: 1;
+}
+.skrzat img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  animation: skrzatHop 0.45s ease-in-out infinite alternate;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.35));
+}
+@keyframes skrzatHop {
+  from { transform: translateY(0) rotate(-3deg); }
+  to { transform: translateY(-6px) rotate(3deg); }
+}

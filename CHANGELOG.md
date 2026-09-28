@@ -6,6 +6,25 @@ Szczegóły decyzji: [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
+## 0.5 — Działające czary i prawdziwa fizyka (28.09.2026)
+
+**Nowe**
+- **Czary działają.** Każdy ukończony regał odblokowuje kolejny; płaci się atramentem (koszt w kropelce przy przycisku):
+  - **Wgląd** (3 krople, 20 s) — każda książka i regał świecą kolorem gatunku;
+  - **Przywołanie** (5 kropli) — stuknij książkę, a jej tomy albo książki tego samego autora zlecą się do koszyka (kurz znika sam);
+  - **Skrzat biblioteczny** (8 kropli, 30 s) — mały skrzat co 3 s sam odkłada książkę na regał, i to na miejsce z pasującą epoką.
+  Przycisk pokazuje, czy czar jest gotowy, działa (złoty pierścień odlicza) albo odpoczywa.
+- **Kartki można wkładać do koszyka** i z niego zanieść do teczki.
+- **Żyrandol da się chwycić** — idzie za palcem, po puszczeniu buja się dalej i wygasa; płomienie świec odchylają się od ruchu, kryształki dzwonią.
+- **Zasłona zachowuje się jak materiał** — góra zostaje przy karniszu, dół idzie za palcem, po puszczeniu fala przelewa się przez tkaninę i uspokaja; fałdy ciemnieją tam, gdzie materiał się gnie.
+- Nowa karta w „Jak grać” o czarach.
+
+**Naprawione / zmienione**
+- Muzyka się przycinała — usunięte „falowanie tempa”, które w Safari na iPadzie powodowało zacięcia.
+- Ukończony regał nie świeci już ramką — staje się matowym meblem sali (krótki błysk w chwili ukończenia, na tabliczce ✓).
+- Podświetlenie regału przy upuszczaniu obrysowuje jego kształt zamiast prostokąta.
+- Usunięte plakietki z pajęczyn (wyglądały jak nie na swoim miejscu).
+
 ## 0.4 — Klimat i „książka w ręku” (28.09.2026)
 
 **Nowe**

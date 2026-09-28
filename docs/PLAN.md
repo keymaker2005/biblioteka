@@ -19,6 +19,8 @@ Wzór: *Librarian: Tidy Up the Arcane Library!* (Steam, ArtRising, 2026). Nie ro
 | 10 | **Muzyka:** nokturny Chopina z Musopen (CC0), przepuszczone przez warstwę lo-fi w kodzie; rytm lo-fi można wyłączyć (25.09) |
 | 11 | **„Weź książkę do ręki”:** stuknięcie otwiera rozkładówkę dwóch kartek (o czym jest, cytat, autor, przyjęcie wtedy i dziś, interpretacja, wpływ na Polskę). Treści ze źródeł, cytaty pełne także z utworów chronionych, bo gra jest prywatna (decyzja właściciela, 25.09) |
 | 12 | **Interaktywne otoczenie z prostą fizyką:** lampa, kinkiety, kominek, zegar, żyrandol (wahadło), zasłona (sprężyna) (25.09) |
+| 13 | **Czary według planu** (Wgląd 3 / Przywołanie 5 / Skrzat 8 kropli; odblokowanie kolejnymi regałami). Przywołanie przenosi książki do koszyka; Skrzat wybiera miejsce z pasującą epoką. Ukończony regał jest matowy, bez ramki (28.09) |
+| 14 | **Więcej zadań w sali (wersja 0.6):** prośby czytelników, naprawa książek, pieczęcie Załuskich (ukryte przedmioty), porządki w otoczeniu — wybór właściciela, wszystkie cztery (28.09) |
 
 ## Urządzenie docelowe
 

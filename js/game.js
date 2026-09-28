@@ -13,6 +13,7 @@ import { initWorld, computeStats, basketHasRoom, moveBookToBasket, getWorldApi }
 import { openBookInHand } from "./ksiazka.js";
 import { initKlimat, onCameraChange as klimatOnCamera, setPora } from "./klimat.js";
 import { startMusic, setDucked } from "./muzyka.js";
+import { initCzary, consumeSummonTarget, refreshSpellButtons } from "./czary.js";
 import { unlockAudio, setSoundsEnabled, setMusicSettings } from "./sound.js";
 import { clamp, shadeColor, brightnessVariant, formatTime, positionFloatingTip } from "./util.js";
 
@@ -36,8 +37,9 @@ const HOWTO_SLIDES = [
   { icon: "📚", text: "Zbieraj książki do koszyka i odnoś je na regały. Regały są według gatunków — ikona na okładce podpowiada gatunek." },
   { icon: "🧹", text: "Kurz i pajęczyny: pocieraj palcem lub rysikiem." },
   { icon: "🔍", text: "Szukaj kryjówek — szuflada, fotel i zasłona oznaczone lupą mogą coś skrywać. Stosy zdejmuj od góry." },
-  { icon: "🗂️", text: "Luźne kartki zanieś do teczki na biurku." },
+  { icon: "🗂️", text: "Luźne kartki zanieś do teczki na biurku — możesz je też po drodze wrzucić do koszyka." },
   { icon: "✦", text: "Bonus: plakietka pod miejscem na półce to epoka — dobra epoka daje ✦ i atrament. Porządek sali rośnie, a sala nabiera blasku." },
+  { icon: "💧", text: "Czary: każdy ukończony regał odblokowuje kolejny (Wgląd, Przywołanie, Skrzat). Płacisz za nie atramentem — liczba w kropelce przy czarze to jego koszt." },
 ];
 
 // ---------------------------------------------------------------------------
@@ -107,6 +109,8 @@ function loadState() {
       dustCleared: Array.isArray(parsed.dustCleared) ? parsed.dustCleared : [],
       cobwebsCleared: Array.isArray(parsed.cobwebsCleared) ? parsed.cobwebsCleared : [],
       pagesFiled: Array.isArray(parsed.pagesFiled) ? parsed.pagesFiled : [],
+      pagesInBasket: parsed.pagesInBasket && typeof parsed.pagesInBasket === "object" ? parsed.pagesInBasket : {},
+      spells: parsed.spells && typeof parsed.spells === "object" ? parsed.spells : {},
       hideoutsOpened: { ...fallback.hideoutsOpened, ...(parsed.hideoutsOpened || {}) },
       hintsShown: { ...fallback.hintsShown, ...(parsed.hintsShown || {}) },
       ink: clamp(Number(parsed.ink) || 0, 0, 20),
@@ -393,7 +397,7 @@ function showSpellTip(btnEl) {
 }
 
 function showInkTip() {
-  showHudTip(inkwellBtnEl, `<strong>Atrament: ${state.ink} z 20 kropli</strong><br>Zdobywasz go za odłożone książki; w przyszłości zasila czary.`);
+  showHudTip(inkwellBtnEl, `<strong>Atrament: ${state.ink} z 20 kropli</strong><br>Zdobywasz go za odłożone książki. Zasila czary: Wgląd 3, Przywołanie 5, Skrzat 8 kropli.`);
 }
 
 function showOrderTip() {
@@ -415,7 +419,12 @@ function wireHudInfoTooltips() {
     showOrderTip();
   });
   orderRingBtnEl.addEventListener("click", showOrderTip);
-  spellBtnEls.forEach((btn) => btn.addEventListener("click", () => showSpellTip(btn)));
+  // Kliknięcia czarów obsługuje js/czary.js (od 0.5); tu tylko podgląd rysikiem/myszą.
+  spellBtnEls.forEach((btn) =>
+    btn.addEventListener("pointerenter", (e) => {
+      if (e.pointerType !== "touch" && btn.classList.contains("locked")) showSpellTip(btn);
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -439,6 +448,7 @@ function hideModal(el) {
  * „weź książkę do ręki” (js/ksiazka.js). Stara karta (openBookCard) zostaje
  * jako zapas na wypadek braku modułu. */
 function openBookDetails(bookId) {
+  if (consumeSummonTarget(bookId)) return; // czar Przywołanie czekał na wybór książki
   const rec = state.books[bookId];
   setDucked(true);
   openBookInHand(bookId, {
@@ -578,7 +588,7 @@ function wireWelcomeUI() {
 }
 
 // ---------------------------------------------------------------------------
-// "Jak grać" — 6 kart, Dalej/Wstecz + przeciągnięcie palcem
+// "Jak grać" — karty (HOWTO_SLIDES), Dalej/Wstecz + przeciągnięcie palcem
 // ---------------------------------------------------------------------------
 
 let howToIndex = 0;
@@ -773,6 +783,7 @@ function wireGlobalEvents() {
 function onWorldChange() {
   saveState();
   updateInkUI();
+  refreshSpellButtons();
   const stats = updateOrderUI();
   updateMinimapMarkers();
   updateMinimapViewport();
@@ -791,6 +802,11 @@ function startGame() {
     onCameraChange: onWorldCameraChange,
   });
   initKlimat(getWorldApi(), { pora: settings.pora });
+  initCzary(getWorldApi(), {
+    buttons: spellBtnEls,
+    showTip: (btn, html) => showHudTip(btn, html),
+    showNote: (text) => getWorldApi().showMsgTip(text, LOGICAL_W / 2, 130, 3400),
+  });
 
   updateInkUI();
   updateOrderUI();

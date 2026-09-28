@@ -642,8 +642,7 @@ function buildCobwebs() {
     const shelfEl = shelfElByGenre[cw.genre];
     const host = document.createElement("div");
     host.className = `cobweb-host cobweb-${cw.corner}`;
-    host.innerHTML = `<span class="cobweb-badge">🧹</span>`;
-    shelfEl.appendChild(host);
+    shelfEl.appendChild(host); // bez plakietki 🧹 (od 0.5) — pajęczynę widać, a podpowiedź przy pierwszym spotkaniu mówi, co z nią zrobić
     cobwebByGenre[cw.genre] = { host, cleared: false };
   }
 }
@@ -703,15 +702,42 @@ function updateFolderCounter() {
 }
 
 function buildPages() {
+  if (!state.pagesInBasket || typeof state.pagesInBasket !== "object") state.pagesInBasket = {};
   for (const p of LAYOUT.pages) {
     if (state.pagesFiled.includes(p.id)) continue;
     const el = document.createElement("div");
     el.className = "page-item no-anim";
     el.dataset.pageId = p.id;
-    applyTransform(el, p.x - PAGE_W / 2, p.y - PAGE_H / 2, p.rot, 1);
-    worldLayerEl.appendChild(el);
-    pageRuntime.set(p.id, { id: p.id, def: p, el });
+    const rt = { id: p.id, def: p, el, location: "world", x: p.x, y: p.y };
+    pageRuntime.set(p.id, rt);
+    const slot = state.pagesInBasket[p.id];
+    if (Number.isInteger(slot)) {
+      basket.assign(slot, p.id);
+      renderPageInBasket(rt, slot);
+    } else {
+      applyTransform(el, p.x - PAGE_W / 2, p.y - PAGE_H / 2, p.rot, 1);
+      worldLayerEl.appendChild(el);
+    }
   }
+}
+
+// Luźna kartka w koszyku (od 0.5): zajmuje jedno z 6 miejsc, z koszyka niesie się ją do teczki.
+function renderPageInBasket(rt, slot) {
+  const { cx, cy } = basket.slotCenter(slot);
+  rt.location = "basket";
+  rt.x = cx;
+  rt.y = cy;
+  applyTransform(rt.el, cx - PAGE_W / 2, cy - PAGE_H / 2, -4, 1.3);
+  if (rt.el.parentElement !== basketLayerEl) basketLayerEl.appendChild(rt.el);
+}
+
+function returnPageHome(rt) {
+  if (rt.location === "basket") {
+    renderPageInBasket(rt, state.pagesInBasket[rt.id]);
+    return;
+  }
+  applyTransform(rt.el, rt.def.x - PAGE_W / 2, rt.def.y - PAGE_H / 2, rt.def.rot, 1);
+  if (rt.el.parentElement !== worldLayerEl) worldLayerEl.appendChild(rt.el);
 }
 
 // =========================================================================
@@ -771,6 +797,7 @@ function buildBooksInWorld() {
     const el = document.createElement("div");
     el.className = "book-item book-cover no-anim";
     el.dataset.bookId = book.id;
+    el.dataset.genre = book.genre;
     el.style.background = bookColor(book);
     el.innerHTML = coverInnerHtml(book);
     if (isOpenVariant(book.id)) el.classList.add("open-variant");
@@ -1042,7 +1069,9 @@ function placeBookOnShelf(rt, shelf, worldPt) {
     state.completedShelves.push(shelf.genre);
     addInk(INK_SHELF_COMPLETE);
     playShelfComplete();
-    shelfElByGenre[shelf.genre].classList.add("complete");
+    const doneEl = shelfElByGenre[shelf.genre];
+    doneEl.classList.add("complete", "just-completed");
+    setTimeout(() => doneEl.classList.remove("just-completed"), 2700);
     lightCandle(shelf.genre);
     showBanner(`Regał «${GENRE_BY_ID[shelf.genre].name}» uporządkowany!`);
 
@@ -1084,6 +1113,85 @@ export function openHideoutById(id) {
   if (el) onHideoutActivate(el);
 }
 
+// =========================================================================
+// Czary (od 0.5) — wołane z js/czary.js
+// =========================================================================
+
+/** Wgląd: każda książka (w sali i w koszyku) świeci kolorem swojego gatunku, regały też. */
+export function spellInsight(on) {
+  sceneEl.classList.toggle("wglad", on);
+}
+
+function cleanDustMagically(rt) {
+  if (!dustyBookIds.has(rt.id) || state.dustCleared.includes(rt.id)) return;
+  state.dustCleared.push(rt.id);
+  if (rt.wipeLayer) {
+    rt.wipeLayer.destroy();
+    rt.wipeLayer = null;
+  }
+  rt.el.classList.remove("dusty");
+}
+
+function isVisibleInWorld(rt) {
+  if (rt.location !== "world") return false;
+  const spot = bookHomeSpot.get(rt.id);
+  return !(spot.kind === "hidden" && !state.hideoutsOpened[spot.hideoutId]);
+}
+
+/**
+ * Przywołanie: wszystkie tomy tej samej serii (albo książki tego samego autora) leżące
+ * w sali lecą do koszyka — tyle, ile zmieści koszyk; magia zdejmuje z nich kurz.
+ * Zwraca { moved, total } albo null, gdy książka nie ma „rodzeństwa” w sali.
+ */
+export function spellSummon(bookId) {
+  const src = BOOKS.find((b) => b.id === bookId);
+  if (!src) return null;
+  const sameGroup = (b) => (src.series ? b.series && b.series.name === src.series.name : b.author === src.author);
+  const candidates = BOOKS.filter(sameGroup)
+    .map((b) => bookRuntime.get(b.id))
+    .filter((rt) => rt && isVisibleInWorld(rt));
+  if (!candidates.length) return null;
+  let moved = 0;
+  for (const rt of candidates) {
+    if (basket.isFull()) break;
+    cleanDustMagically(rt);
+    placeBookInBasket(rt);
+    rt.el.classList.remove("summoned");
+    void rt.el.offsetWidth;
+    rt.el.classList.add("summoned");
+    moved++;
+  }
+  refreshStackAccessibility();
+  notifyChange();
+  return { moved, total: candidates.length };
+}
+
+/**
+ * Skrzat: odkłada JEDNĄ książkę na właściwy regał — najpierw z koszyka, potem czyste,
+ * dostępne książki z sali; wybiera miejsce z pasującą epoką, jeśli jest wolne.
+ * Zwraca { bookId, shelf } albo null, gdy nie ma czego odłożyć.
+ */
+export function elfPlaceOne() {
+  const all = [...bookRuntime.values()];
+  const fromBasket = all.filter((rt) => rt.location === "basket");
+  const fromWorld = all.filter(
+    (rt) => isVisibleInWorld(rt) && isBookAccessible(rt.id) && !(dustyBookIds.has(rt.id) && !state.dustCleared.includes(rt.id))
+  );
+  for (const rt of [...fromBasket, ...fromWorld]) {
+    const shelf = LAYOUT.shelfByGenre[rt.book.genre];
+    const occ = shelfOccupancy[shelf.genre];
+    let slot = shelf.slots.findIndex((s, i) => !occ[i] && s.epoch === rt.book.epoch);
+    if (slot === -1) slot = occ.findIndex((x) => !x);
+    if (slot === -1) continue;
+    const c = shelfSlotCenter(shelf, slot);
+    cleanDustMagically(rt);
+    placeBookOnShelf(rt, shelf, { x: c.cx, y: c.cyBottom - 10 });
+    refreshStackAccessibility();
+    return { bookId: rt.id, shelf, slot };
+  }
+  return null;
+}
+
 /** Wąskie API świata dla modułów fali 3 (js/klimat.js). */
 export function getWorldApi() {
   return {
@@ -1091,6 +1199,7 @@ export function getWorldApi() {
     darknessEl,
     state,
     getCamX: () => camX,
+    setCamX,
     isXInView,
     worldToScreenX,
     showMsgTip,
@@ -1386,8 +1495,8 @@ function startBookDrag(rt, e) {
 
 function startPageDrag(rt, e) {
   const scenePt = toSceneCoords(e.clientX, e.clientY);
-  const screenX = worldToScreenX(rt.def.x);
-  const screenY = rt.def.y + 70;
+  const screenX = rt.location === "basket" ? rt.x : worldToScreenX(rt.def.x);
+  const screenY = rt.location === "basket" ? rt.y : rt.def.y + 70;
   activeDrag = {
     type: "page",
     id: rt.id,
@@ -1493,6 +1602,7 @@ function handlePageDragMove(e) {
   applyTransform(rt.el, x, y, 0, 1.15);
   maybeAutoScroll(e.clientX);
   updateFolderHighlight(scenePt);
+  if (rt.location === "world") updateBasketHighlight(scenePt);
 }
 
 function updateShelfHighlight(worldPt) {
@@ -1623,6 +1733,10 @@ function finishPageDrag(e) {
   const inFolder = worldPt.x >= f.x && worldPt.x <= f.x + f.w && worldPt.y >= f.y && worldPt.y <= f.y + f.h;
 
   if (inFolder) {
+    if (rt.location === "basket") {
+      basket.clear(state.pagesInBasket[rt.id]);
+      delete state.pagesInBasket[rt.id];
+    }
     state.pagesFiled.push(rt.id);
     rt.el.remove();
     pageRuntime.delete(rt.id);
@@ -1632,10 +1746,23 @@ function finishPageDrag(e) {
     return;
   }
 
-  const x = rt.def.x - PAGE_W / 2;
-  const y = rt.def.y - PAGE_H / 2;
-  applyTransform(rt.el, x, y, rt.def.rot, 1);
-  if (rt.el.parentElement !== worldLayerEl) worldLayerEl.appendChild(rt.el);
+  const br = basket.rect();
+  const inBasket = scenePt.x >= br.x && scenePt.x <= br.x + br.width && scenePt.y >= br.y && scenePt.y <= br.y + br.height;
+  if (inBasket && rt.location === "world") {
+    if (basket.isFull()) {
+      showMsgTip("Koszyk pełny — odnieś coś z koszyka.", br.x + br.width / 2, br.y - 6);
+    } else {
+      const slot = basket.findFreeSlot();
+      basket.assign(slot, rt.id);
+      state.pagesInBasket[rt.id] = slot;
+      renderPageInBasket(rt, slot);
+      playPaper();
+      notifyChange();
+      return;
+    }
+  }
+
+  returnPageHome(rt);
 }
 
 function onPointerCancelAnywhere(e) {
@@ -1658,10 +1785,7 @@ function onPointerCancelAnywhere(e) {
       if (activeDrag.moved) {
         rt.el.classList.remove("dragging");
         clearDragHighlights();
-        const x = rt.def.x - PAGE_W / 2;
-        const y = rt.def.y - PAGE_H / 2;
-        applyTransform(rt.el, x, y, rt.def.rot, 1);
-        if (rt.el.parentElement !== worldLayerEl) worldLayerEl.appendChild(rt.el);
+        returnPageHome(rt);
       }
     }
     if (activeDrag.type === "hideout") {

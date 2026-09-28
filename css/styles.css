@@ -421,11 +421,27 @@ body {
   /* JS ustawia inline background-image po wczytaniu assets/regal*.png */
   box-shadow: none;
 }
+/* Podświetlenie celu przeciągania obrysowuje kształt regału (drop-shadow idzie po
+   konturze obrazka), a nie prostokąt elementu. */
 .shelf.has-image.drag-target {
-  box-shadow: 0 0 0 3px var(--gold), 0 0 28px 6px rgba(201, 162, 39, 0.55);
+  box-shadow: none;
+  filter: drop-shadow(0 0 3px var(--gold)) drop-shadow(0 0 14px rgba(201, 162, 39, 0.7));
 }
+/* Ukończony regał staje się zwykłym, matowym meblem sali (od 0.5) — bez ramki i poświaty.
+   Tylko w chwili ukończenia krótko rozbłyska (.just-completed). */
 .shelf.has-image.complete {
-  box-shadow: 0 0 0 2px var(--gold), 0 0 34px 8px rgba(255, 210, 110, 0.45);
+  box-shadow: none;
+}
+.shelf.complete.just-completed {
+  animation: shelfDone 2.6s ease-out;
+}
+@keyframes shelfDone {
+  0% { filter: drop-shadow(0 0 0 rgba(255, 220, 140, 0)); }
+  18% { filter: drop-shadow(0 0 22px rgba(255, 220, 140, 0.95)); }
+  100% { filter: drop-shadow(0 0 0 rgba(255, 220, 140, 0)); }
+}
+.shelf.complete::after {
+  display: none;
 }
 .shelf.drag-target {
   box-shadow: 0 0 0 3px var(--gold), 0 0 28px 6px rgba(201, 162, 39, 0.55);
@@ -440,8 +456,8 @@ body {
   60% { transform: translateX(-4px); }
   80% { transform: translateX(3px); }
 }
-.shelf.complete {
-  box-shadow: 0 0 0 2px var(--gold), 0 0 34px 8px rgba(255, 210, 110, 0.45), inset 0 0 40px rgba(255, 210, 110, 0.15);
+.shelf.complete:not(.has-image) {
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 /* Subtelny wędrujący błysk na ramie regału — im wyższy porządek sali, tym
@@ -484,9 +500,10 @@ body {
   gap: 6px;
   overflow: hidden;
 }
-.shelf.complete .shelf-plaque {
-  background: linear-gradient(180deg, #fbe9b0, #e8c25a 55%, #c79a2f);
-  box-shadow: 0 0 16px rgba(255, 220, 140, 0.8);
+/* Ukończony regał: tabliczka zostaje matowa, dostaje tylko wygrawerowany znaczek ✓. */
+.shelf.complete .plaque-name::after {
+  content: " ✓";
+  font-weight: 700;
 }
 .shelf-plaque::after {
   content: "";

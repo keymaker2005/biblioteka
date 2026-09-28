@@ -26,7 +26,6 @@ let current = -1;
 let duck = 1;
 let beatTimer = null;
 let crackleTimer = null;
-let wowTimer = null;
 let settings = getMusicSettings();
 
 function shuffle(a) {
@@ -112,7 +111,6 @@ function playNext() {
   current++;
   audioEl.dataset.fading = "";
   audioEl.src = order[current];
-  audioEl.playbackRate = 1;
   musicGain.gain.cancelScheduledValues(ctx.currentTime);
   musicGain.gain.setValueAtTime(0, ctx.currentTime);
   musicGain.gain.setTargetAtTime(1, ctx.currentTime + 0.1, FADE / 3);
@@ -211,12 +209,8 @@ function scheduleCrackle() {
   crackleTimer = setTimeout(scheduleCrackle, 300 + Math.random() * 2200);
 }
 
-function scheduleWow() {
-  if (audioEl && !audioEl.paused) {
-    audioEl.playbackRate = 1 + (Math.random() - 0.5) * 0.006; // 0,997–1,003
-  }
-  wowTimer = setTimeout(scheduleWow, 1800 + Math.random() * 1500);
-}
+// „Wow” (falowanie tempa) wyłączone w 0.5: każda zmiana playbackRate w Safari na iPadzie
+// powodowała krótkie zacięcie odtwarzania (zgłoszenie właściciela: „muzyka się przycina”).
 
 // --- Publiczne API -----------------------------------------------------------
 
@@ -230,7 +224,6 @@ export function startMusic() {
     playNext();
     scheduleBeat();
     scheduleCrackle();
-    scheduleWow();
   } else if (audioEl.paused && settings.on && document.visibilityState === "visible") {
     const p = audioEl.play();
     if (p && p.catch) p.catch(() => {});

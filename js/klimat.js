@@ -472,42 +472,78 @@ function buildClock() {
 }
 
 // =========================================================================
-// Żyrandol — wahadło tłumione
+// Żyrandol — wahadło, które można chwycić palcem (od 0.5)
 // =========================================================================
+// Swobodnie: θ'' = −ω0²·sin θ − c·θ'. Trzymany palcem: dodatkowa sprężyna ciągnie kąt
+// do kierunku palca względem punktu zawieszenia (żyrandol „idzie za ręką” z bezwładnością),
+// po puszczeniu buja się dalej z prędkością, jaką miał. Płomienie świec odchylają się
+// przeciwnie do ruchu (bezwładność), kryształki dzwonią przy przejściu przez pion.
 
-const pend = { theta: 0, omega: 0, running: false, lastCross: 0 };
+const pend = { theta: 0, omega: 0, lastCross: 0, held: false, target: 0, grabOffset: 0 };
 const PEND_W0 = (2 * Math.PI) / 2.4; // okres ~2,4 s
-const PEND_DAMP = 0.85; // wygasa w ~6 s
-const PEND_MAX = (12 * Math.PI) / 180;
+const PEND_DAMP = 0.7;
+const PEND_MAX = (25 * Math.PI) / 180;
+const GRAB_K = 140;
+const GRAB_C = 16;
 
 function kickChandelier(dOmega) {
   pend.omega += dOmega;
   startPhysics();
 }
 
+function pivotScene() {
+  const ch = LAYOUT.chandelier;
+  return { x: ch.pivotX - api.getCamX(), y: ch.pivotY + 70 };
+}
+
+function pointerScene(e) {
+  const scene = document.getElementById("scene");
+  const r = scene.getBoundingClientRect();
+  const s = r.width / 1366 || 1;
+  return { x: (e.clientX - r.left) / s, y: (e.clientY - r.top) / s };
+}
+
+function fingerAngle(e) {
+  const p = pivotScene();
+  const f = pointerScene(e);
+  return Math.atan2(p.x - f.x, f.y - p.y); // 0 = pionowo w dół; dodatni = w lewo (jak rotate w CSS)
+}
+
 function stepPendulum(dt) {
-  const steps = 4;
+  const steps = 6;
   const h = dt / steps;
   for (let i = 0; i < steps; i++) {
-    const acc = -PEND_W0 * PEND_W0 * Math.sin(pend.theta) - PEND_DAMP * pend.omega;
+    let acc = -PEND_W0 * PEND_W0 * Math.sin(pend.theta) - PEND_DAMP * pend.omega;
+    if (pend.held) acc += GRAB_K * (pend.target - pend.theta) - GRAB_C * pend.omega;
     pend.omega += acc * h;
     const prev = pend.theta;
-    pend.theta = Math.max(-PEND_MAX, Math.min(PEND_MAX, pend.theta + pend.omega * h));
-    if (Math.abs(pend.theta) >= PEND_MAX) pend.omega *= -0.4; // miękkie odbicie na granicy wychylenia
-    if (prev * pend.theta < 0 && Math.abs(pend.omega) > 0.12) {
+    pend.theta += pend.omega * h;
+    if (Math.abs(pend.theta) > PEND_MAX) {
+      pend.theta = Math.sign(pend.theta) * PEND_MAX;
+      pend.omega *= -0.35; // miękkie odbicie na granicy wychylenia
+    }
+    if (prev * pend.theta < 0 && Math.abs(pend.omega) > 0.15) {
       const now = performance.now();
-      if (now - pend.lastCross > 250) {
-        playCrystal(Math.min(1, Math.abs(pend.omega) / 0.8));
+      if (now - pend.lastCross > 220) {
+        playCrystal(Math.min(1, Math.abs(pend.omega) / 1.2));
         pend.lastCross = now;
       }
     }
   }
-  if (api.chandelierEl) api.chandelierEl.style.transform = `rotate(${pend.theta}rad)`;
-  const resting = Math.abs(pend.theta) < 0.0008 && Math.abs(pend.omega) < 0.002;
+  const ch = api.chandelierEl;
+  if (ch) {
+    ch.style.transform = `rotate(${pend.theta}rad)`;
+    const tilt = Math.max(-35, Math.min(35, -pend.omega * 22));
+    ch.querySelectorAll(".chandelier-flame").forEach((f) => (f.style.rotate = `${tilt}deg`));
+  }
+  const resting = !pend.held && Math.abs(pend.theta) < 0.0008 && Math.abs(pend.omega) < 0.002;
   if (resting) {
     pend.theta = 0;
     pend.omega = 0;
-    if (api.chandelierEl) api.chandelierEl.style.transform = "";
+    if (ch) {
+      ch.style.transform = "";
+      ch.querySelectorAll(".chandelier-flame").forEach((f) => (f.style.rotate = ""));
+    }
   }
   return !resting;
 }
@@ -516,85 +552,242 @@ function buildChandelier() {
   const ch = api.chandelierEl;
   if (!ch) return;
   ch.classList.add("klimat-interaktywny");
-  wireGesture(ch, {
-    onTap: (tapX) => {
-      const w = ch.getBoundingClientRect().width / sceneScale();
-      const dir = tapX < w / 2 ? 1 : -1;
-      kickChandelier(dir * 0.55);
-    },
-    onDrag: (dx, vx) => {
-      kickChandelier((vx / 900) * 0.12);
-    },
+  let g = null;
+  ch.addEventListener("pointerdown", (e) => {
+    if (api.isDragging()) return;
+    e.stopPropagation();
+    g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, moved: false };
+    try {
+      ch.setPointerCapture(e.pointerId);
+    } catch (err) {
+      /* ignorowane */
+    }
   });
+  ch.addEventListener("pointermove", (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    e.stopPropagation();
+    if (!g.moved && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) > 6) {
+      g.moved = true;
+      pend.held = true;
+      pend.grabOffset = fingerAngle(e) - pend.theta;
+      startPhysics();
+    }
+    if (g.moved) {
+      const t = fingerAngle(e) - pend.grabOffset;
+      pend.target = Math.max(-PEND_MAX, Math.min(PEND_MAX, t));
+    }
+  });
+  const end = (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    e.stopPropagation();
+    const moved = g.moved;
+    g = null;
+    pend.held = false;
+    if (!moved) {
+      // Stuknięcie = pchnięcie od strony palca.
+      const p = pivotScene();
+      const f = pointerScene(e);
+      kickChandelier(f.x < p.x ? -0.9 : 0.9);
+    } else {
+      startPhysics();
+    }
+  };
+  ch.addEventListener("pointerup", end);
+  ch.addEventListener("pointercancel", end);
 }
 
 // =========================================================================
-// Zasłona — sprężyna z tłumieniem
+// Zasłona — wiszący materiał (od 0.5)
 // =========================================================================
+// Model łańcucha wiszącego pod własnym ciężarem: N węzłów w pionie, każdy ma poziome
+// wychylenie u. Napięcie w danym miejscu = ciężar materiału poniżej, więc góra jest
+// sztywniejsza, dół luźny — fala biegnie w dół i wraca jak w prawdziwej tkaninie.
+// Góra przybita do karnisza, na 70% wysokości słabe przytrzymanie wiązania.
+// Palec chwyta najbliższy węzeł i ciągnie go; reszta podąża przez napięcie.
+// Rysowanie: obrazek zasłony pocięty na poziome paski przesuwane o u(y),
+// z lekkim cieniowaniem fałd tam, gdzie materiał jest najbardziej wygięty.
 
-const curtain = { d: 0, v: 0, dragging: false, startD: 0, el: null, img: null };
-const CURT_K = Math.pow((2 * Math.PI) / 1.6, 2);
-const CURT_C = 3.0;
-const CURT_MAX = 150;
+const CURT_N = 28;
+const CURT_G = 6500; // „grawitacja” dobrana tak, by podstawowy okres wahań był ~1,6 s
+const CURT_DAMP = 1.3;
+const CURT_TIE_K = 26;
+const CURT_MAX = 170;
+const CURT_MARGIN = 190;
+const curtain = {
+  u: new Float32Array(CURT_N),
+  v: new Float32Array(CURT_N),
+  grab: -1,
+  grabTarget: 0,
+  img: null,
+  canvas: null,
+  g: null,
+  moving: false,
+};
 
-function applyCurtain() {
+function curtainNodeAt(localY) {
   const C = LAYOUT.interactables.curtain;
-  const angle = Math.atan(curtain.d / C.h);
-  const squeeze = 1 - Math.min(0.28, Math.abs(curtain.d) / 520);
-  curtain.el.style.transform = `skewX(${angle}rad) scaleX(${squeeze})`;
-  if (Math.abs(curtain.d) > C.revealAt && !api.state.hideoutsOpened.curtain) {
-    openHideoutById("curtain");
-    save();
-  }
+  return Math.max(1, Math.min(CURT_N - 1, Math.round((localY / C.h) * (CURT_N - 1))));
 }
 
 function stepCurtain(dt) {
-  if (curtain.dragging) return true;
-  const steps = 4;
+  if (!curtain.moving && curtain.grab < 0) return false;
+  const C = LAYOUT.interactables.curtain;
+  const dy = C.h / (CURT_N - 1);
+  const tieIdx = Math.round(0.7 * (CURT_N - 1));
+  const steps = Math.ceil(dt / 0.004);
   const h = dt / steps;
-  for (let i = 0; i < steps; i++) {
-    const acc = -CURT_K * curtain.d - CURT_C * curtain.v;
-    curtain.v += acc * h;
-    curtain.d += curtain.v * h;
+  const { u, v } = curtain;
+  for (let s = 0; s < steps; s++) {
+    for (let i = 1; i < CURT_N; i++) {
+      const yUp = (i - 0.5) * dy;
+      const tUp = CURT_G * (C.h - yUp);
+      const tDown = i < CURT_N - 1 ? CURT_G * (C.h - (i + 0.5) * dy) : 0;
+      const down = i < CURT_N - 1 ? u[i + 1] - u[i] : 0;
+      let a = (tDown * down - tUp * (u[i] - u[i - 1])) / (dy * dy) - CURT_DAMP * v[i];
+      if (i === tieIdx) a -= CURT_TIE_K * u[i];
+      v[i] += a * h;
+    }
+    for (let i = 1; i < CURT_N; i++) u[i] += v[i] * h;
+    if (curtain.grab > 0) {
+      // Chwycony węzeł idzie za palcem (miękko, bez teleportacji).
+      const j = curtain.grab;
+      const du = curtain.grabTarget - u[j];
+      v[j] = du / Math.max(h, 0.016);
+      u[j] += du * Math.min(1, h * 30);
+    }
+    for (let i = 1; i < CURT_N; i++) u[i] = Math.max(-CURT_MAX, Math.min(CURT_MAX, u[i]));
   }
-  applyCurtain();
-  const resting = Math.abs(curtain.d) < 0.2 && Math.abs(curtain.v) < 0.5;
-  if (resting) {
-    curtain.d = 0;
-    curtain.v = 0;
-    curtain.el.style.transform = "";
+  drawCurtain();
+
+  // Odsłonięcie kryjówki: dolna część materiału odsunięta wystarczająco daleko.
+  let lower = 0;
+  for (let i = tieIdx; i < CURT_N; i++) lower += Math.abs(u[i]);
+  lower /= CURT_N - tieIdx;
+  if (lower > C.revealAt && !api.state.hideoutsOpened.curtain) {
+    openHideoutById("curtain");
+    save();
   }
-  return !resting;
+
+  let maxU = 0;
+  let maxV = 0;
+  for (let i = 0; i < CURT_N; i++) {
+    maxU = Math.max(maxU, Math.abs(u[i]));
+    maxV = Math.max(maxV, Math.abs(v[i]));
+  }
+  curtain.moving = curtain.grab > 0 || maxU > 0.25 || maxV > 1;
+  if (!curtain.moving) {
+    u.fill(0);
+    v.fill(0);
+    drawCurtain();
+  }
+  return curtain.moving;
+}
+
+function drawCurtain() {
+  const { g, img } = curtain;
+  if (!g || !img || !img.complete) return;
+  const C = LAYOUT.interactables.curtain;
+  const W = C.w + CURT_MARGIN * 2;
+  g.clearRect(0, 0, W, C.h);
+  const rows = 110;
+  const rowH = C.h / rows;
+  const srcRowH = img.naturalHeight / rows;
+  const dy = C.h / (CURT_N - 1);
+  const uAt = (y) => {
+    const f = y / dy;
+    const i = Math.min(CURT_N - 2, Math.floor(f));
+    const t = f - i;
+    return curtain.u[i] * (1 - t) + curtain.u[i + 1] * t;
+  };
+  for (let r = 0; r < rows; r++) {
+    const y = r * rowH;
+    const off = uAt(y + rowH / 2);
+    g.drawImage(img, 0, r * srcRowH, img.naturalWidth, srcRowH + 0.6, CURT_MARGIN + off, y, C.w, rowH + 0.6);
+    // Fałdy: im bardziej materiał wygięty, tym ciemniej (cień) — tylko na samej tkaninie.
+    const slope = Math.abs(uAt(Math.min(C.h - 1, y + rowH)) - uAt(y)) / rowH;
+    if (slope > 0.02) {
+      g.save();
+      g.globalCompositeOperation = "source-atop";
+      g.fillStyle = `rgba(20,0,0,${Math.min(0.28, slope * 0.9)})`;
+      g.fillRect(CURT_MARGIN + off - 2, y, C.w + 4, rowH + 0.6);
+      g.restore();
+    }
+  }
 }
 
 function buildCurtain() {
   const C = LAYOUT.interactables.curtain;
-  const wrap = el("klimat-zaslona", C);
-  wrap.innerHTML = `<img src="${C.image}" alt="" draggable="false">`;
-  curtain.el = wrap;
-  wireGesture(wrap, {
-    onTap: (tapX) => {
-      curtain.v += tapX < C.w / 2 ? 140 : -140;
+  const W = C.w + CURT_MARGIN * 2;
+  const canvas = document.createElement("canvas");
+  canvas.className = "klimat-zaslona";
+  const res = 1.5;
+  canvas.width = Math.round(W * res);
+  canvas.height = Math.round(C.h * res);
+  canvas.style.left = `${C.x - CURT_MARGIN}px`;
+  canvas.style.top = `${C.y}px`;
+  canvas.style.width = `${W}px`;
+  canvas.style.height = `${C.h}px`;
+  api.worldLayerEl.appendChild(canvas);
+  curtain.canvas = canvas;
+  curtain.g = canvas.getContext("2d");
+  curtain.g.scale(res, res);
+  curtain.img = new Image();
+  curtain.img.onload = drawCurtain;
+  curtain.img.src = C.image;
+
+  // Pole dotyku = sama zasłona (canvas ma szerokie przezroczyste marginesy na wychylenia).
+  const hot = el("klimat-hotspot klimat-zaslona-dotyk", C);
+  let g = null;
+  hot.addEventListener("pointerdown", (e) => {
+    if (api.isDragging()) return;
+    e.stopPropagation();
+    const f = pointerScene(e);
+    const localY = f.y - 70 - C.y;
+    g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, fx0: f.x, node: curtainNodeAt(localY), moved: false };
+    try {
+      hot.setPointerCapture(e.pointerId);
+    } catch (err) {
+      /* ignorowane */
+    }
+  });
+  hot.addEventListener("pointermove", (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    e.stopPropagation();
+    if (!g.moved && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) > 6) {
+      g.moved = true;
+      curtain.grab = g.node;
+      g.u0 = curtain.u[g.node];
+      curtain.moving = true;
+      startPhysics();
+    }
+    if (g.moved) {
+      const f = pointerScene(e);
+      curtain.grabTarget = Math.max(-CURT_MAX, Math.min(CURT_MAX, g.u0 + (f.x - g.fx0)));
+    }
+  });
+  const end = (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    e.stopPropagation();
+    const wasMoved = g.moved;
+    const node = g.node;
+    const fx = pointerScene(e).x;
+    g = null;
+    curtain.grab = -1;
+    if (!wasMoved) {
+      // Stuknięcie: pchnięcie materiału w miejscu dotyku, fala rozchodzi się w górę i w dół.
+      const center = C.x - api.getCamX() + C.w / 2;
+      const dir = fx < center ? 1 : -1;
+      for (let i = 1; i < CURT_N; i++) curtain.v[i] += dir * 260 * Math.exp(-((i - node) * (i - node)) / 10);
       if (!api.state.hideoutsOpened.curtain) {
         openHideoutById("curtain");
         save();
       }
-      startPhysics();
-    },
-    onDragStart: () => {
-      curtain.dragging = true;
-      curtain.startD = curtain.d;
-      curtain.v = 0;
-    },
-    onDrag: (dx) => {
-      curtain.d = Math.max(-CURT_MAX, Math.min(CURT_MAX, curtain.startD + dx));
-      applyCurtain();
-    },
-    onDragEnd: () => {
-      curtain.dragging = false;
-      startPhysics();
-    },
-  });
+    }
+    curtain.moving = true;
+    startPhysics();
+  };
+  hot.addEventListener("pointerup", end);
+  hot.addEventListener("pointercancel", end);
 }
 
 // =========================================================================
