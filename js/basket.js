@@ -36,6 +36,8 @@ export function createBasket(cartEl, counterEl, getLogicalRect, slotsCount = 6) 
   }
 
   function assign(index, bookId) {
+    // Jedna rzecz = jedno miejsce: gdyby ta sama była już gdzie indziej, zwalniamy tamto.
+    for (let i = 0; i < slots.length; i++) if (slots[i] === bookId) slots[i] = null;
     slots[index] = bookId;
     updateCounter();
   }

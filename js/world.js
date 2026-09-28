@@ -1079,6 +1079,11 @@ function addInk(amount) {
 }
 
 function placeBookInBasket(rt) {
+  // Książka już w koszyku nie może zająć drugiego miejsca (dawniej: „duch” blokujący koszyk).
+  if (rt.location === "basket") {
+    returnBookHome(rt);
+    return;
+  }
   const idx = basket.findFreeSlot();
   basket.assign(idx, rt.id);
   state.books[rt.id] = { where: "basket", basketSlot: idx, shelfSlot: null };
@@ -1293,6 +1298,8 @@ function returnBookHome(rt) {
   if (rt.location === "basket") {
     const idx = state.books[rt.id].basketSlot;
     renderBookInBasket(rt, idx, false);
+  } else if (rt.location === "shelf") {
+    renderBookOnShelf(rt, state.books[rt.id].shelfSlot, false);
   } else {
     const pos = worldPosForBook(rt.id);
     rt.location = "world";
@@ -1532,8 +1539,11 @@ function startBookDrag(rt, e) {
   hideHoverTip();
   const scenePt = toSceneCoords(e.clientX, e.clientY);
   const w = bookWidth(rt);
-  const originScreen =
-    rt.location === "basket" ? { x: rt.x, y: rt.y } : { x: worldToScreenX(rt.x), y: rt.y + 70 };
+  // Lewy górny róg książki na ekranie (grzbiet na regale stoi dolną krawędzią na półce).
+  let originTop;
+  if (rt.location === "basket") originTop = { x: rt.x - w / 2, y: rt.y - BOOK_COVER_H / 2 };
+  else if (rt.location === "shelf") originTop = { x: worldToScreenX(rt.x) - w / 2, y: rt.y + 70 - spineSize(rt).h };
+  else originTop = { x: worldToScreenX(rt.x) - w / 2, y: rt.y + 70 - BOOK_COVER_H / 2 };
 
   activeDrag = {
     type: "book",
@@ -1542,9 +1552,10 @@ function startBookDrag(rt, e) {
     startClientX: e.clientX,
     startClientY: e.clientY,
     moved: false,
-    draggable: rt.location !== "shelf", // odłożona książka: samo stuknięcie otwiera kartę, nie da się jej przenieść
-    grabDX: scenePt.x - (originScreen.x - w / 2),
-    grabDY: scenePt.y - (originScreen.y - BOOK_COVER_H / 2),
+    // Od 0.6.2 książkę z regału też można nieść — ale tylko na rewersy; gdzie indziej wraca na półkę.
+    draggable: true,
+    grabDX: scenePt.x - originTop.x,
+    grabDY: scenePt.y - originTop.y,
     originLocation: rt.location,
     width: w,
   };
@@ -1643,6 +1654,7 @@ function handleBookDragMove(e) {
   applyTransform(rt.el, x, y, 0, 1.12);
 
   maybeAutoScroll(e.clientX);
+  if (drag.originLocation === "shelf") return; // z regału tylko na rewersy — bez podświetlania koszyka i regałów
   updateShelfHighlight(toWorldCoords(e.clientX, e.clientY));
   updateBasketHighlight(scenePt);
 }
@@ -1753,9 +1765,19 @@ function finishBookDrag(e) {
   });
   if (hr) {
     if (hr.reject) showMsgTip(hr.reject, scenePt.x, Math.max(90, scenePt.y - 30), 2800);
-    if (hr.then === "basket" && rt.location !== "basket" && !basket.isFull()) {
+    if (hr.then === "basket" && rt.location === "world" && !basket.isFull()) {
       placeBookInBasket(rt);
       return;
+    }
+    returnBookHome(rt);
+    notifyChange();
+    return;
+  }
+
+  if (drag.originLocation === "shelf") {
+    const onOwnShelf = shelfAt(toWorldCoords(e.clientX, e.clientY)) === LAYOUT.shelfByGenre[rt.book.genre];
+    if (!onOwnShelf) {
+      showMsgTip("Książka z regału wraca na swoje miejsce. Stąd możesz ją podać tylko na rewersy.", scenePt.x, Math.max(90, scenePt.y - 30), 2800);
     }
     returnBookHome(rt);
     notifyChange();
@@ -1770,7 +1792,9 @@ function finishBookDrag(e) {
     scenePt.y <= basketRect.y + basketRect.height;
 
   if (inBasket) {
-    if (basket.isFull()) {
+    if (rt.location === "basket") {
+      returnBookHome(rt); // przesunięta w obrębie koszyka — zostaje na swoim miejscu
+    } else if (basket.isFull()) {
       const r = basket.rect();
       showMsgTip("Koszyk pełny — odnieś książki na regały.", r.x + r.width / 2, r.y - 6);
       returnBookHome(rt);

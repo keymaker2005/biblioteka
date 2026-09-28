@@ -70,7 +70,8 @@ function audio() {
   return ctx && getSoundsEnabled() ? ctx : null;
 }
 
-function ping(freq, { gain = 0.05, decay = 1.2, at = 0, type = "sine", partials = [1] } = {}) {
+const ping = safeSound(pingRaw);
+function pingRaw(freq, { gain = 0.05, decay = 1.2, at = 0, type = "sine", partials = [1] } = {}) {
   const ctx = audio();
   if (!ctx) return;
   const t0 = ctx.currentTime + at;
@@ -92,7 +93,8 @@ function ping(freq, { gain = 0.05, decay = 1.2, at = 0, type = "sine", partials 
 }
 
 let noiseBuf = null;
-function noiseBurst({ gain = 0.03, dur = 0.05, freq = 2500, q = 1.2, at = 0 } = {}) {
+const noiseBurst = safeSound(noiseBurstRaw);
+function noiseBurstRaw({ gain = 0.03, dur = 0.05, freq = 2500, q = 1.2, at = 0 } = {}) {
   const ctx = audio();
   if (!ctx) return;
   if (!noiseBuf) {
@@ -127,6 +129,17 @@ const playCrystal = (energy) => {
 };
 const playBell = (at) => ping(740, { gain: 0.07, decay: 2.6, at, partials: [1, 2.76, 5.4, 8.9] });
 const playWhoosh = () => noiseBurst({ gain: 0.06, dur: 0.6, freq: 700, q: 0.6 });
+
+/** Dźwięk nigdy nie może zatrzymać gry: błąd Web Audio (np. uśpiony kontekst na iPadzie) połykamy. */
+function safeSound(fn) {
+  return (...args) => {
+    try {
+      fn(...args);
+    } catch (err) {
+      /* bez dźwięku, gra działa dalej */
+    }
+  };
+}
 
 // =========================================================================
 // Pomocnicze: elementy świata, gesty „stuknij / przeciągnij”
@@ -481,10 +494,12 @@ function buildFireplace() {
   applyFire(k.fire, true);
   wireGesture(hot, {
     onTap: () => {
+      // Od 0.6.2: najpierw ogień i zapis, dźwięk na końcu — dawniej błąd dźwięku (iPad)
+      // przerywał zapalanie, a stan „pali się” i tak się przełączał, więc kominek przestawał reagować.
       k.fire = !k.fire;
-      if (k.fire) playWhoosh();
       applyFire(k.fire, false);
       save();
+      if (k.fire) playWhoosh();
     },
   });
 }

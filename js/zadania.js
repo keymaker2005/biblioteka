@@ -213,18 +213,37 @@ function onPageTap(pageId) {
   );
 }
 
-function bookUnderPointer(info) {
-  const els = document.elementsFromPoint(info.clientX, info.clientY);
-  for (const el of els) {
-    const b = el.closest && el.closest(".book-item");
-    if (b) return b.dataset.bookId;
+// Od 0.6.2 z zapasem: grzbiet na regale ma ~30 px szerokości, więc liczy się też książka
+// tuż obok palca. Gdy w zasięgu jest książka, z której kartka wypadła — wygrywa ona.
+const TOL_SPINE_X = 40;
+const TOL_COVER = 20;
+
+function bookUnderPointer(info, pageId) {
+  const scale = document.getElementById("scene").getBoundingClientRect().width / 1366 || 1;
+  let nearest = null;
+  let nearestD = Infinity;
+  for (const el of document.querySelectorAll(".book-item")) {
+    if (el.classList.contains("dragging")) continue;
+    const r = el.getBoundingClientRect();
+    if (!r.width) continue;
+    const dx = Math.max(r.left - info.clientX, 0, info.clientX - r.right) / scale;
+    const dy = Math.max(r.top - info.clientY, 0, info.clientY - r.bottom) / scale;
+    const tolX = el.classList.contains("book-spine") ? TOL_SPINE_X : TOL_COVER;
+    if (dx > tolX || dy > TOL_COVER) continue;
+    const id = el.dataset.bookId;
+    if (id === Z.pageBooks[pageId]) return id;
+    const d = Math.hypot(dx, dy);
+    if (d < nearestD) {
+      nearestD = d;
+      nearest = id;
+    }
   }
-  return null;
+  return nearest;
 }
 
 function onPageDrop(info) {
   if (info.kind !== "page") return null;
-  const bookId = bookUnderPointer(info);
+  const bookId = bookUnderPointer(info, info.id);
   if (!bookId) return null;
   if (Z.pageBooks[info.id] !== bookId) {
     return { reject: "Ta kartka pochodzi z innej książki." };

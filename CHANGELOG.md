@@ -6,6 +6,14 @@ Szczegóły decyzji: [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
+## 0.6.2 — Książki z regału na rewersy i do naprawy, koszyk bez „duchów”, kominek na iPadzie (28.09.2026)
+
+**Naprawione (po teście 0.6.1)**
+- **Koszyk pokazywał więcej rzeczy, niż w nim było, i blokował dokładanie.** Przyczyna: książka przesunięta w obrębie koszyka (albo wyjęta i odłożona z powrotem do koszyka) zajmowała drugie miejsce, a stare zostawało puste, ale „zajęte”. Po wczytaniu gry duch znikał, dlatego usterka pojawiała się „czasem”. Teraz książka przesunięta w koszyku zostaje na swoim miejscu, a koszyk pilnuje zasady „jedna rzecz = jedno miejsce”.
+- **Książkę odłożoną na regał można podać na rewersy.** Chwyć grzbiet i zanieś na rewersy na biurku; po obsłużeniu prośby książka wraca na swoje miejsce na półce. Upuszczona gdzie indziej też wraca na półkę (z podpowiedzią) — z regału nie da się jej przełożyć do koszyka ani na inny regał.
+- **Kominek przestawał reagować na iPadzie.** Przy zapalaniu gra najpierw odtwarzała dźwięk, a dopiero potem pokazywała ogień. Gdy dźwięk na iPadzie zawiódł (np. po uśpieniu ekranu), ogień się nie pojawiał, choć gra i tak zapisywała, że się pali. Teraz ogień zapala się najpierw, a żaden dźwięk w otoczeniu (kominek, zegar, trzask drewna) nie może już zatrzymać gry.
+- **Książkę na regale da się naprawić.** Grzbiet ma ok. 30 px szerokości, więc kartkę trzeba było trafić co do piksela. Teraz liczy się też książka tuż obok miejsca upuszczenia, a gdy w zasięgu jest ta właściwa, wygrywa ona.
+
 ## 0.6.1 — Płynna zasłona, światło lampki na swoim miejscu (28.09.2026)
 
 **Naprawione (po teście 0.5/0.6)**
