@@ -9,7 +9,10 @@
 
 import { EPOCH_BY_ID, GENRE_BY_ID, GENRE_ICONS, BOOKS } from "./books.js";
 import { LAYOUT, WORLD_W } from "./layout.js";
-import { initWorld, computeStats } from "./world.js";
+import { initWorld, computeStats, basketHasRoom, moveBookToBasket, getWorldApi } from "./world.js";
+import { openBookInHand } from "./ksiazka.js";
+import { initKlimat, onCameraChange as klimatOnCamera, setPora } from "./klimat.js";
+import { startMusic, setDucked } from "./muzyka.js";
 import { unlockAudio, setSoundsEnabled, setMusicSettings } from "./sound.js";
 import { clamp, shadeColor, brightnessVariant, formatTime, positionFloatingTip } from "./util.js";
 
@@ -112,6 +115,8 @@ function loadState() {
       playMs: Number(parsed.playMs) || 0,
       completedShelves: Array.isArray(parsed.completedShelves) ? parsed.completedShelves : [],
       camX: Number.isFinite(parsed.camX) ? clamp(parsed.camX, 0, MAX_CAMX) : 0,
+      // Fala 3: lampa, kominek, ręcznie zapalone kinkiety (js/klimat.js pilnuje wartości domyślnych).
+      klimat: parsed.klimat && typeof parsed.klimat === "object" ? parsed.klimat : {},
     };
   } catch (err) {
     console.warn("Nie udało się wczytać zapisu — zaczynam od nowa.", err);
@@ -135,7 +140,7 @@ let world = null;
 // ---------------------------------------------------------------------------
 
 function defaultSettings() {
-  return { musicOn: true, musicVolume: 70, soundsOn: true, textScale: 1 };
+  return { musicOn: true, musicVolume: 70, musicBeat: true, soundsOn: true, textScale: 1, pora: "auto" };
 }
 
 function loadSettings() {
@@ -150,6 +155,8 @@ function loadSettings() {
       musicVolume: Number.isFinite(parsed.musicVolume) ? clamp(parsed.musicVolume, 0, 100) : fb.musicVolume,
       soundsOn: typeof parsed.soundsOn === "boolean" ? parsed.soundsOn : fb.soundsOn,
       textScale: [1, 1.2, 1.4].includes(parsed.textScale) ? parsed.textScale : fb.textScale,
+      musicBeat: typeof parsed.musicBeat === "boolean" ? parsed.musicBeat : fb.musicBeat,
+      pora: ["auto", "dzien", "wieczor"].includes(parsed.pora) ? parsed.pora : fb.pora,
     };
   } catch (err) {
     console.warn("Nie udało się wczytać ustawień — używam domyślnych.", err);
@@ -168,7 +175,8 @@ function saveSettings() {
 function applySettings() {
   document.documentElement.style.setProperty("--text-scale", String(settings.textScale));
   setSoundsEnabled(settings.soundsOn);
-  setMusicSettings({ on: settings.musicOn, volume: settings.musicVolume / 100 });
+  setMusicSettings({ on: settings.musicOn, volume: settings.musicVolume / 100, beat: settings.musicBeat });
+  setPora(settings.pora);
 }
 
 let settings = defaultSettings();
@@ -414,16 +422,34 @@ function wireHudInfoTooltips() {
 // Modale
 // ---------------------------------------------------------------------------
 
+function refreshDucking() {
+  const anyOpen = !!document.querySelector(".modal:not(.hidden), .ksiazka-overlay.visible");
+  setDucked(anyOpen);
+}
 function showModal(el) {
   el.classList.remove("hidden");
+  refreshDucking();
 }
 function hideModal(el) {
   el.classList.add("hidden");
+  refreshDucking();
 }
 
-/** Zaczep: JEDNO miejsce, które otwiera szczegóły książki po stuknięciu. Moduł
- * „weź do ręki” (kolejna fala) podmieni wnętrze tej funkcji, nie wywołania. */
+/** JEDNO miejsce, które otwiera szczegóły książki po stuknięciu: rozkładówka
+ * „weź książkę do ręki” (js/ksiazka.js). Stara karta (openBookCard) zostaje
+ * jako zapas na wypadek braku modułu. */
 function openBookDetails(bookId) {
+  const rec = state.books[bookId];
+  setDucked(true);
+  openBookInHand(bookId, {
+    location: rec ? rec.where : "world",
+    basketHasRoom: basketHasRoom(),
+    addToBasket: () => moveBookToBasket(bookId),
+    onClose: refreshDucking,
+  });
+}
+
+function openBookCard(bookId) {
   const book = BOOKS.find((b) => b.id === bookId);
   if (!book) return;
   const epoch = EPOCH_BY_ID[book.epoch];
@@ -663,6 +689,9 @@ function refreshSettingsUI() {
   settingMusicOnEl.checked = settings.musicOn;
   settingMusicVolumeEl.value = String(settings.musicVolume);
   settingSoundsOnEl.checked = settings.soundsOn;
+  const beatEl = document.getElementById("setting-music-beat");
+  if (beatEl) beatEl.checked = settings.musicBeat;
+  document.querySelectorAll("#setting-pora .segmented-btn").forEach((b) => b.classList.toggle("active", b.dataset.pora === settings.pora));
   updateTextScaleButtons();
 }
 
@@ -692,6 +721,22 @@ function wireSettingsUI() {
       applySettings();
       saveSettings();
       updateTextScaleButtons();
+    });
+  });
+  const beatEl = document.getElementById("setting-music-beat");
+  if (beatEl) {
+    beatEl.addEventListener("change", () => {
+      settings.musicBeat = beatEl.checked;
+      applySettings();
+      saveSettings();
+    });
+  }
+  document.querySelectorAll("#setting-pora .segmented-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      settings.pora = btn.dataset.pora;
+      applySettings();
+      saveSettings();
+      refreshSettingsUI();
     });
   });
 }
@@ -736,6 +781,7 @@ function onWorldChange() {
 
 function onWorldCameraChange() {
   updateMinimapViewport();
+  klimatOnCamera();
 }
 
 function startGame() {
@@ -744,6 +790,7 @@ function startGame() {
     onChange: onWorldChange,
     onCameraChange: onWorldCameraChange,
   });
+  initKlimat(getWorldApi(), { pora: settings.pora });
 
   updateInkUI();
   updateOrderUI();
@@ -771,6 +818,12 @@ function boot() {
 
   settings = loadSettings();
   applySettings();
+  refreshSettingsUI();
+
+  // Muzyka rusza po pierwszym geście (wymóg iOS: dźwięk tylko z inicjatywy użytkownika).
+  const kickMusic = () => startMusic();
+  document.addEventListener("pointerup", kickMusic, { once: true });
+  document.addEventListener("click", kickMusic, { once: true });
 
   const params = new URLSearchParams(location.search);
   if (params.get("bez-intro") === "1") {

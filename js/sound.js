@@ -7,10 +7,22 @@ let ctx = null;
 let soundsOn = true;
 
 // Zaczep pod muzykę (etap 4 — sama muzyka nie gra jeszcze, tylko zapamiętujemy ustawienie).
-let musicSettings = { on: true, volume: 0.7 };
+let musicSettings = { on: true, volume: 0.7, beat: true };
+let musicListener = null;
 
 export function setMusicSettings(opts = {}) {
   musicSettings = { ...musicSettings, ...opts };
+  if (musicListener) musicListener({ ...musicSettings });
+}
+
+/** js/muzyka.js słucha zmian ustawień muzyki (wł./wył., głośność, rytm lo-fi). */
+export function onMusicSettingsChange(fn) {
+  musicListener = fn;
+}
+
+/** Wspólny AudioContext (powstaje dopiero po pierwszym geście — patrz unlockAudio). */
+export function getAudioContext() {
+  return ctx;
 }
 
 export function getMusicSettings() {

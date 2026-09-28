@@ -12,6 +12,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="css/ksiazka.css" />
+<link rel="stylesheet" href="css/klimat.css" />
 </head>
 <body>
   <div id="app">
@@ -179,6 +181,14 @@
             </div>
 
             <div class="settings-row">
+              <span class="settings-label">Rytm lo-fi</span>
+              <label class="switch">
+                <input type="checkbox" id="setting-music-beat" />
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+              </label>
+            </div>
+
+            <div class="settings-row">
               <span class="settings-label">Dźwięki</span>
               <label class="switch">
                 <input type="checkbox" id="setting-sounds-on" />
@@ -194,6 +204,21 @@
                 <button type="button" class="segmented-btn" data-scale="1.4">Bardzo duży</button>
               </div>
             </div>
+
+            <div class="settings-row settings-row-col">
+              <span class="settings-label">Pora dnia</span>
+              <div class="segmented" id="setting-pora">
+                <button type="button" class="segmented-btn" data-pora="auto">Jak za oknem</button>
+                <button type="button" class="segmented-btn" data-pora="dzien">Dzień</button>
+                <button type="button" class="segmented-btn" data-pora="wieczor">Wieczór</button>
+              </div>
+            </div>
+
+            <details class="settings-about">
+              <summary>O grze</summary>
+              <p>Muzyka: nokturny Fryderyka Chopina (op. 9 nr 2 i op. 72 nr 1 — Peter Johnston; op. 9 nr 1 — Vadim Chaimovich), nagrania Musopen, domena publiczna (CC0), przez Wikimedia Commons.</p>
+              <p>Ilustracje sali: wygenerowane (Higgsfield). Treści o lekturach: opracowane na podstawie źródeł podanych przy każdej książce.</p>
+            </details>
           </div>
         </div>
 

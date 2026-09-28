@@ -15,6 +15,10 @@ Wzór: *Librarian: Tidy Up the Arcane Library!* (Steam, ArtRising, 2026). Nie ro
 | 6 | Grafika i dźwięk w etapie 4, z pomocą Higgsfield / Adobe for Creativity (zgoda właściciela) |
 | 7 | **Rdzeniem jest sprzątanie**, nie sortowanie (etap 1b): przesuwana sala w bałaganie, koszyk, kurz, stosy, kryjówki |
 | 8 | **Regały według gatunków**, a epoka jest tylko bonusem. Po opinii graczki, bo epoki były za trudne |
+| 9 | **Pora dnia zgodna z zegarem iPada** (wschód/zachód słońca w Warszawie): wieczorem ilustracje zmierzchu i ciepłe światła, nie ciemność. W ustawieniach można wymusić dzień lub wieczór (25.09) |
+| 10 | **Muzyka:** nokturny Chopina z Musopen (CC0), przepuszczone przez warstwę lo-fi w kodzie; rytm lo-fi można wyłączyć (25.09) |
+| 11 | **„Weź książkę do ręki”:** stuknięcie otwiera rozkładówkę dwóch kartek (o czym jest, cytat, autor, przyjęcie wtedy i dziś, interpretacja, wpływ na Polskę). Treści ze źródeł, cytaty pełne także z utworów chronionych, bo gra jest prywatna (decyzja właściciela, 25.09) |
+| 12 | **Interaktywne otoczenie z prostą fizyką:** lampa, kinkiety, kominek, zegar, żyrandol (wahadło), zasłona (sprężyna) (25.09) |
 
 ## Urządzenie docelowe
 
@@ -103,9 +107,12 @@ Liczby są startowe i dostroimy je po pierwszych testach żony.
 | 0. Decyzje | Widok, język, książki, folder | ✅ 25.09 |
 | 1. Szkic | Jedna sala, 30 książek, przeciąganie palcem i Pencilem, karta książki, podgląd przy unoszeniu rysika, zapis. Grafika tylko z CSS, bez obrazków. Czary widoczne jako zablokowane ikony | ✅ 25.09, czeka na test na iPadzie |
 | 1b. Sala w bałaganie | Przesuwana sala (4 części, ilustracje z Higgsfield), koszyk, kurz, pajęczyny, stosy, kryjówki, kartki, kinkiety i żyrandol, regały według gatunków z bonusem epoki | ✅ 25.09, czeka na test na iPadzie |
-| 2. Rdzeń gry | Generator książek z pliku danych, więcej lektur, kolejne sale, menu | – |
+| Fale 1–2 (po testach) | Naprawy (koszyk, przewijanie), jasna sala z połyskiem, większe napisy, widoczne kryjówki i podpowiedzi, ekran powitalny, menu, „Jak grać”, nowy dolny pasek | ✅ 25.09 |
+| Fala 3: klimat | Pora dnia, muzyka Chopin + lo-fi, liście za oknami z odbiciem w parkiecie, kurz w smudze światła, lampa, kinkiety, kominek, zegar, żyrandol, zasłona | ✅ 28.09, czeka na test na iPadzie |
+| Fala 4: książka w ręku | Rozkładówka z wiedzą o 30 lekturach (js/wiedza-1.js, wiedza-2.js) | ✅ 28.09, czeka na test na iPadzie |
+| 2. Rdzeń gry | Więcej lektur, kolejne sale | – |
 | 3. Czary | Atrament, Wgląd, Przywołanie, Skrzat, odnowienia | – |
-| 4. Oprawa | Grafika (Higgsfield / Adobe), muzyka, dźwięki, animacje, polski klimat | – |
+| 4. Oprawa | Grafika, muzyka i animacje zrobione w falach 1b–3; zostaje dopracowanie (skrzat, więcej animacji) | częściowo |
 | 5. iPad | Ikona na ekranie początkowym, działanie bez internetu, kopia zapisu, test na iPadzie żony | – |
 
 ## Udostępnienie

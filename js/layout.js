@@ -107,20 +107,31 @@ const candles = shelves.map((s) => ({
   y: Math.round(s.y + s.h * 0.3),
 }));
 
-// Żyrandol namalowany na sala-3.jpg — przy 100% porządku zapalają się płomienie na jego świecach.
-// x/y = środek (poświata); flames = czubki świec w współrzędnych świata.
+// Żyrandol — Fala 3: assets/zyrandol.png (436×557, tło przezroczyste, łańcuch sięga
+// górnej krawędzi obrazka = punkt obrotu wahadła). Umieszczony w świecie jako sprite
+// 218×278 (proporcje zachowane) w x=2991, y=-95. Czubki knotów 6 świec podane jako
+// ułamki (fx, fy) obrazka — flames poniżej są z nich przeliczone, żeby nie wpisywać
+// tych samych liczb dwa razy. x/y = środek poświaty (przy 100% porządku); pivotX/pivotY
+// = punkt obrotu wahadła (środek górnej krawędzi sprite'a).
+const CHANDELIER_SPRITE = { x: 2991, y: -95, w: 218, h: 278 };
+const CHANDELIER_FLAME_FRACS = [
+  [0.08, 0.381],
+  [0.202, 0.445],
+  [0.271, 0.359],
+  [0.729, 0.359],
+  [0.8, 0.445],
+  [0.922, 0.381],
+];
 const chandelier = {
   x: BAY3_X + 620,
-  y: 70,
-  painted: true,
-  flames: [
-    { x: BAY3_X + 526, y: 10 },
-    { x: BAY3_X + 552, y: 24 },
-    { x: BAY3_X + 578, y: 3 },
-    { x: BAY3_X + 663, y: 3 },
-    { x: BAY3_X + 690, y: 24 },
-    { x: BAY3_X + 713, y: 10 },
-  ],
+  y: 60,
+  sprite: CHANDELIER_SPRITE,
+  pivotX: CHANDELIER_SPRITE.x + CHANDELIER_SPRITE.w / 2,
+  pivotY: CHANDELIER_SPRITE.y,
+  flames: CHANDELIER_FLAME_FRACS.map(([fx, fy]) => ({
+    x: CHANDELIER_SPRITE.x + fx * CHANDELIER_SPRITE.w,
+    y: CHANDELIER_SPRITE.y + fy * CHANDELIER_SPRITE.h,
+  })),
 };
 
 // Pajęczyna w rogu każdego regału.
@@ -270,10 +281,34 @@ const pages = [
 ];
 
 // ---------------------------------------------------------------------------
+// Fala 3 — klimat: okna z liśćmi, obiekty interaktywne (js/klimat.js).
+// Prostokąty wymierzone na ilustracjach (te same przeliczenia co wyżej).
+// ---------------------------------------------------------------------------
+
+// Okna z brzozami za szybą: `arch` = promień łuku u góry (przycinanie liści).
+const windows = [
+  { id: "okno-1", x: BAY1_X + 58, y: 60, w: 198, h: 424, arch: 99, sunbeam: { x: BAY1_X + 150, y: 110, w: 420, h: 520 } },
+  { id: "okno-4", x: BAY4_X + 222, y: 66, w: 190, h: 418, arch: 95, sunbeam: null },
+];
+
+const interactables = {
+  // Lampa z zielonym kloszem na stole czytelni: klosz ~ (933, 395), blat ~ y 508.
+  lamp: { x: BAY1_X + 893, y: 372, w: 82, h: 160, shade: { x: BAY1_X + 933, y: 398 }, tableY: 508 },
+  // Palenisko kominka (otwór) i miejsce na ogień.
+  fireplace: { x: BAY3_X + 515, y: 443, w: 210, h: 167, fireY: 600 },
+  // Zegar na gzymsie kominka.
+  clock: { x: BAY3_X + 573, y: 318, w: 90, h: 78 },
+  // Zasłona: assets/zaslona.png (275×1222), zawieszona u góry.
+  curtain: { x: BAY4_X + 376, y: 9, w: 138, h: 611, image: "assets/zaslona.png", revealAt: 70 },
+};
+
+// ---------------------------------------------------------------------------
 // Eksport
 // ---------------------------------------------------------------------------
 
 export const LAYOUT = {
+  windows,
+  interactables,
   world: { width: WORLD_W, height: WORLD_H },
   pilasterWidth,
   bays,

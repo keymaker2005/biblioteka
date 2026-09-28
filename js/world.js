@@ -280,6 +280,7 @@ function applyOrderGleam() {
 export function setAmbient({ evening = 0 } = {}) {
   ambientEvening = clamp(evening, 0, 1);
   if (darknessEl) darknessEl.style.setProperty("--evening", String(ambientEvening));
+  if (worldLayerEl) worldLayerEl.style.setProperty("--evening", String(ambientEvening));
   if (ambientEvening > 0.5) {
     for (const genre of state.completedShelves) lightCandle(genre);
     if (computeStats(state).percent >= 100) lightChandelier();
@@ -413,6 +414,17 @@ function buildBays() {
     bayEl.style.width = `${bay.width}px`;
     bayEl.innerHTML = `<div class="bay-fallback"><div class="bay-wall"></div><div class="bay-floor"></div></div>`;
     worldLayerEl.appendChild(bayEl);
+
+    // Wieczorna wersja ilustracji (pixel-aligned) — krycie = --evening (js/klimat.js).
+    const eveningSrc = bay.image.replace(/\.jpg$/, "-wieczor.jpg");
+    const eveningImg = new Image();
+    eveningImg.onload = () => {
+      const ev = document.createElement("div");
+      ev.className = "bay-evening";
+      ev.style.backgroundImage = `url("${eveningSrc}")`;
+      bayEl.appendChild(ev);
+    };
+    eveningImg.src = eveningSrc;
 
     const img = new Image();
     img.onload = () => {
@@ -582,7 +594,21 @@ function buildCandlesAndChandelier() {
   chEl.className = "chandelier";
   chEl.style.left = `${LAYOUT.chandelier.x}px`;
   chEl.style.top = `${LAYOUT.chandelier.y}px`;
-  if (LAYOUT.chandelier.painted) {
+  if (LAYOUT.chandelier.sprite) {
+    // Żyrandol jako osobny obrazek (kołysze się — js/klimat.js). Element obejmuje prostokąt
+    // sprite'a, punkt obrotu = środek górnej krawędzi; płomienie są jego dziećmi.
+    const sp = LAYOUT.chandelier.sprite;
+    chEl.classList.add("sprite");
+    chEl.style.left = `${sp.x}px`;
+    chEl.style.top = `${sp.y}px`;
+    chEl.style.width = `${sp.w}px`;
+    chEl.style.height = `${sp.h}px`;
+    chEl.innerHTML =
+      `<img class="chandelier-img" src="assets/zyrandol.png" alt="" draggable="false">` +
+      (LAYOUT.chandelier.flames || [])
+        .map((f) => `<div class="chandelier-flame" style="left:${f.x - sp.x}px;top:${f.y - sp.y}px"></div>`)
+        .join("");
+  } else if (LAYOUT.chandelier.painted) {
     // Żyrandol jest namalowany na ilustracji — dokładamy tylko płomienie na czubkach jego świec.
     chEl.classList.add("painted");
     chEl.innerHTML = (LAYOUT.chandelier.flames || [])
@@ -973,6 +999,18 @@ function placeBookInBasket(rt) {
   notifyChange();
 }
 
+// Dla modułu „książka w ręku” (js/ksiazka.js): przycisk „Do koszyka” na rozkładówce.
+export function basketHasRoom() {
+  return !basket.isFull();
+}
+
+export function moveBookToBasket(bookId) {
+  const rt = bookRuntime.get(bookId);
+  if (!rt || rt.location !== "world" || basket.isFull()) return false;
+  placeBookInBasket(rt);
+  return true;
+}
+
 function placeBookOnShelf(rt, shelf, worldPt) {
   const slotIndex = findNearestFreeSlot(shelf, shelf.genre, worldPt);
   if (slotIndex === -1) {
@@ -1026,6 +1064,41 @@ function lightCandle(genre) {
   const glow = candleGlowByGenre[genre];
   if (glow) glow.el.classList.add("lit-visible");
   playCandle();
+}
+
+/** Ręczne zapalanie/gaszenie kinkietu (js/klimat.js). Zwraca nowy stan. */
+export function toggleCandle(genre) {
+  const el = candleFlameByGenre[genre];
+  if (!el) return false;
+  const lit = !el.classList.contains("lit");
+  el.classList.toggle("lit", lit);
+  const glow = candleGlowByGenre[genre];
+  if (glow) glow.el.classList.toggle("lit-visible", lit);
+  if (lit) playCandle();
+  return lit;
+}
+
+/** Otwiera kryjówkę po id (np. odsunięcie zasłony w js/klimat.js). */
+export function openHideoutById(id) {
+  const el = hideoutElById[id];
+  if (el) onHideoutActivate(el);
+}
+
+/** Wąskie API świata dla modułów fali 3 (js/klimat.js). */
+export function getWorldApi() {
+  return {
+    worldLayerEl,
+    darknessEl,
+    state,
+    getCamX: () => camX,
+    isXInView,
+    worldToScreenX,
+    showMsgTip,
+    notifyChange,
+    candleEls: candleFlameByGenre,
+    chandelierEl,
+    isDragging: () => !!activeDrag,
+  };
 }
 
 function lightChandelier() {

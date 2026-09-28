@@ -46,3 +46,5 @@ wystarczy wpisać adres IP komputera zamiast `localhost`.
 
 Pełny opis pomysłu, listę 30 lektur, epoki, znaki i plan kolejnych etapów zawiera
 [`docs/PLAN.md`](docs/PLAN.md).
+
+Historia wersji: [CHANGELOG.md](CHANGELOG.md).
