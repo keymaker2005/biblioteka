@@ -1100,9 +1100,80 @@ export function basketHasRoom() {
 
 export function moveBookToBasket(bookId) {
   const rt = bookRuntime.get(bookId);
+  if (rt && rt.location === "shelf") return takeOffShelf(rt);
   if (!rt || rt.location !== "world" || basket.isFull()) return false;
   placeBookInBasket(rt);
   return true;
+}
+
+// Od 0.6.3 książki można zdejmować z regału i przestawiać, więc nagrody wypłacamy RAZ:
+// state.nagrody = { placed: [id], epoch: [id], chronology: [genre] } (regał — state.completedShelves).
+// Bez tego odkładanie tej samej książki w kółko „drukowałoby” atrament.
+function nagrody() {
+  if (!state.nagrody || typeof state.nagrody !== "object") state.nagrody = {};
+  const n = state.nagrody;
+  for (const k of ["placed", "epoch", "chronology"]) if (!Array.isArray(n[k])) n[k] = [];
+  return n;
+}
+
+/** Zapisy sprzed 0.6.3: to, co już stoi na regałach, zostało opłacone. */
+function migrateNagrody() {
+  if (state.nagrody && typeof state.nagrody === "object") return;
+  const n = nagrody();
+  for (const book of BOOKS) {
+    const rec = state.books[book.id];
+    if (!rec || rec.where !== "shelf") continue;
+    n.placed.push(book.id);
+    const slot = LAYOUT.shelfByGenre[book.genre].slots[rec.shelfSlot];
+    if (slot && slot.epoch === book.epoch) n.epoch.push(book.id);
+  }
+  for (const g of computeStats(state).chronologyGenres) if (state.completedShelves.includes(g)) n.chronology.push(g);
+}
+
+/** Atrament za odłożenie książki i za dobrą epokę — każda nagroda tylko za pierwszym razem. */
+function awardPlacement(rt, shelf, slotIndex, { quiet = false } = {}) {
+  const n = nagrody();
+  if (!n.placed.includes(rt.id)) {
+    n.placed.push(rt.id);
+    addInk(INK_PLACE);
+    spawnFloatingLabel(shelf.x + shelf.w / 2, shelf.y - 6, `+${INK_PLACE}`);
+  }
+  if (shelf.slots[slotIndex].epoch !== rt.book.epoch) return;
+  if (!n.epoch.includes(rt.id)) {
+    n.epoch.push(rt.id);
+    addInk(INK_EPOCH_BONUS);
+    playEpochBonus();
+    spawnFloatingLabel(shelf.x + shelf.w / 2, shelf.y - 30, "✦ Dobra epoka!", "epoch-bonus");
+  } else if (!quiet) {
+    spawnFloatingLabel(shelf.x + shelf.w / 2, shelf.y - 30, "✦ Dobra epoka!", "epoch-bonus");
+  }
+}
+
+/** Po każdej zmianie na regale: wygląd „uporządkowany”/gwiazdka wg stanu TERAZ, nagrody raz. */
+function afterShelfChange(genre) {
+  const shelfEl = shelfElByGenre[genre];
+  const full = isShelfFull(genre);
+  shelfEl.classList.toggle("complete", full);
+  if (full && !state.completedShelves.includes(genre)) {
+    state.completedShelves.push(genre);
+    addInk(INK_SHELF_COMPLETE);
+    playShelfComplete();
+    shelfEl.classList.add("just-completed");
+    setTimeout(() => shelfEl.classList.remove("just-completed"), 2700);
+    lightCandle(genre);
+    showBanner(`Regał «${GENRE_BY_ID[genre].name}» uporządkowany!`);
+  }
+  const chrono = computeStats(state).chronologyGenres.includes(genre);
+  const star = shelfEl.querySelector(".plaque-star");
+  if (star) star.classList.toggle("hidden", !chrono);
+  const n = nagrody();
+  if (chrono && !n.chronology.includes(genre)) {
+    n.chronology.push(genre);
+    addInk(INK_CHRONOLOGY);
+    playChronologyStar();
+    showBanner("Ład chronologiczny!");
+  }
+  refreshStackAccessibility();
 }
 
 function placeBookOnShelf(rt, shelf, worldPt) {
@@ -1118,40 +1189,78 @@ function placeBookOnShelf(rt, shelf, worldPt) {
   renderBookOnShelf(rt, slotIndex, false);
   shelfOccupancy[shelf.genre][slotIndex] = rt.id;
 
-  addInk(INK_PLACE);
   playPlaceGood();
-  spawnFloatingLabel(shelf.x + shelf.w / 2, shelf.y - 6, `+${INK_PLACE}`);
+  awardPlacement(rt, shelf, slotIndex);
+  afterShelfChange(shelf.genre);
+  notifyChange();
+}
 
-  const slot = shelf.slots[slotIndex];
-  const goodEpoch = slot.epoch === rt.book.epoch;
-  if (goodEpoch) {
-    addInk(INK_EPOCH_BONUS);
-    playEpochBonus();
-    spawnFloatingLabel(shelf.x + shelf.w / 2, shelf.y - 30, "✦ Dobra epoka!", "epoch-bonus");
-  }
-
-  refreshStackAccessibility();
-
-  if (isShelfFull(shelf.genre) && !state.completedShelves.includes(shelf.genre)) {
-    state.completedShelves.push(shelf.genre);
-    addInk(INK_SHELF_COMPLETE);
-    playShelfComplete();
-    const doneEl = shelfElByGenre[shelf.genre];
-    doneEl.classList.add("complete", "just-completed");
-    setTimeout(() => doneEl.classList.remove("just-completed"), 2700);
-    lightCandle(shelf.genre);
-    showBanner(`Regał «${GENRE_BY_ID[shelf.genre].name}» uporządkowany!`);
-
-    const stats = computeStats(state);
-    if (stats.chronologyGenres.includes(shelf.genre)) {
-      addInk(INK_CHRONOLOGY);
-      playChronologyStar();
-      shelfElByGenre[shelf.genre].querySelector(".plaque-star").classList.remove("hidden");
-      showBanner("Ład chronologiczny!");
+function nearestSlot(shelf, worldPt) {
+  let best = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < shelf.slots.length; i++) {
+    const c = shelfSlotCenter(shelf, i);
+    const d = Math.hypot(c.cx - worldPt.x, c.cyBottom - worldPt.y);
+    if (d < bestDist) {
+      bestDist = d;
+      best = i;
     }
   }
+  return best;
+}
 
+/** Przestawienie na tym samym regale: na wolne miejsce albo zamiana z książką, która tam stoi. */
+function moveWithinShelf(rt, shelf, worldPt) {
+  const genre = shelf.genre;
+  const occ = shelfOccupancy[genre];
+  const from = state.books[rt.id].shelfSlot;
+  const to = nearestSlot(shelf, worldPt);
+  if (to === from) {
+    returnBookHome(rt);
+    return;
+  }
+  const otherId = occ[to];
+  occ[to] = rt.id;
+  occ[from] = otherId;
+  state.books[rt.id].shelfSlot = to;
+  renderBookOnShelf(rt, to, false);
+  if (otherId) {
+    state.books[otherId].shelfSlot = from;
+    const other = bookRuntime.get(otherId);
+    renderBookOnShelf(other, from, false);
+    awardPlacement(other, shelf, from, { quiet: true });
+  } else {
+    updateSlotVisual(genre, from, false);
+  }
+  playPlaceGood();
+  awardPlacement(rt, shelf, to);
+  afterShelfChange(genre);
   notifyChange();
+}
+
+/** Zdjęcie książki z regału do koszyka (przeciągnięciem albo przyciskiem na karcie książki). */
+function takeOffShelf(rt) {
+  if (basket.isFull()) {
+    const r = basket.rect();
+    showMsgTip("Koszyk pełny — zrób w nim miejsce.", r.x + r.width / 2, r.y - 6);
+    returnBookHome(rt);
+    return false;
+  }
+  const genre = rt.book.genre;
+  const slot = state.books[rt.id].shelfSlot;
+  shelfOccupancy[genre][slot] = null;
+  updateSlotVisual(genre, slot, false);
+  // grzbiet → z powrotem okładka
+  rt.el.classList.remove("book-spine");
+  rt.el.classList.add("book-cover");
+  if (isOpenVariant(rt.id)) rt.el.classList.add("open-variant");
+  rt.el.style.width = "";
+  rt.el.style.height = "";
+  rt.el.innerHTML = coverInnerHtml(rt.book);
+  placeBookInBasket(rt);
+  afterShelfChange(genre);
+  notifyChange();
+  return true;
 }
 
 function lightCandle(genre) {
@@ -1274,6 +1383,17 @@ export function getWorldApi() {
     candleEls: candleFlameByGenre,
     chandelierEl,
     isDragging: () => !!activeDrag,
+    // Od 0.7 (js/cienie.js): książki leżące na podłodze — stopa = dolna krawędź okładki.
+    floorBooks: () => {
+      const out = [];
+      for (const rt of bookRuntime.values()) {
+        if (rt.location !== "world" || rt.hiddenAway || rt.el.classList.contains("dragging")) continue;
+        const foot = rt.y + BOOK_COVER_H / 2;
+        if (foot < 650) continue;
+        out.push({ x1: rt.x - BOOK_COVER_W / 2, x2: rt.x + BOOK_COVER_W / 2, y: foot, h: 38 });
+      }
+      return out;
+    },
   };
 }
 
@@ -1552,7 +1672,8 @@ function startBookDrag(rt, e) {
     startClientX: e.clientX,
     startClientY: e.clientY,
     moved: false,
-    // Od 0.6.2 książkę z regału też można nieść — ale tylko na rewersy; gdzie indziej wraca na półkę.
+    // Od 0.6.3 książkę z regału można nieść: do koszyka (zdjęcie), na inne miejsce tego regału
+    // (przestawienie) albo na rewersy.
     draggable: true,
     grabDX: scenePt.x - originTop.x,
     grabDY: scenePt.y - originTop.y,
@@ -1654,7 +1775,6 @@ function handleBookDragMove(e) {
   applyTransform(rt.el, x, y, 0, 1.12);
 
   maybeAutoScroll(e.clientX);
-  if (drag.originLocation === "shelf") return; // z regału tylko na rewersy — bez podświetlania koszyka i regałów
   updateShelfHighlight(toWorldCoords(e.clientX, e.clientY));
   updateBasketHighlight(scenePt);
 }
@@ -1775,12 +1895,18 @@ function finishBookDrag(e) {
   }
 
   if (drag.originLocation === "shelf") {
-    const onOwnShelf = shelfAt(toWorldCoords(e.clientX, e.clientY)) === LAYOUT.shelfByGenre[rt.book.genre];
-    if (!onOwnShelf) {
-      showMsgTip("Książka z regału wraca na swoje miejsce. Stąd możesz ją podać tylko na rewersy.", scenePt.x, Math.max(90, scenePt.y - 30), 2800);
+    const br = basket.rect();
+    const toBasket = scenePt.x >= br.x && scenePt.x <= br.x + br.width && scenePt.y >= br.y && scenePt.y <= br.y + br.height;
+    const wp = toWorldCoords(e.clientX, e.clientY);
+    const target = shelfAt(wp);
+    if (toBasket) takeOffShelf(rt);
+    else if (target && target.genre === rt.book.genre) moveWithinShelf(rt, target, wp);
+    else if (target) rejectDrop(rt, target, "Ta książka szuka regału innego gatunku.");
+    else {
+      showMsgTip("Książkę z regału przestawisz na tym regale albo zdejmiesz do koszyka.", scenePt.x, Math.max(90, scenePt.y - 30), 2800);
+      returnBookHome(rt);
+      notifyChange();
     }
-    returnBookHome(rt);
-    notifyChange();
     return;
   }
 
@@ -1986,8 +2112,9 @@ export function initWorld(gameState, gameHooks) {
     else cobwebByGenre[genre].host.remove();
   }
 
+  migrateNagrody();
+  for (const shelf of LAYOUT.shelves) shelfElByGenre[shelf.genre].classList.toggle("complete", isShelfFull(shelf.genre));
   for (const genreId of state.completedShelves) {
-    shelfElByGenre[genreId].classList.add("complete");
     const el = candleFlameByGenre[genreId];
     if (el) el.classList.add("lit");
     const glow = candleGlowByGenre[genreId];

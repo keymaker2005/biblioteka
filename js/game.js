@@ -122,6 +122,8 @@ function loadState() {
       startedAt: Number(parsed.startedAt) || Date.now(),
       playMs: Number(parsed.playMs) || 0,
       completedShelves: Array.isArray(parsed.completedShelves) ? parsed.completedShelves : [],
+      // Od 0.6.3: które nagrody już wypłacono (brak = stary zapis, world.js je odtworzy).
+      nagrody: parsed.nagrody && typeof parsed.nagrody === "object" ? parsed.nagrody : undefined,
       camX: Number.isFinite(parsed.camX) ? clamp(parsed.camX, 0, MAX_CAMX) : 0,
       // Fala 3: lampa, kominek, ręcznie zapalone kinkiety (js/klimat.js pilnuje wartości domyślnych).
       klimat: parsed.klimat && typeof parsed.klimat === "object" ? parsed.klimat : {},

@@ -6,6 +6,13 @@ Szczegóły decyzji: [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
+## 0.7 — Cienie od ognia, książki z regału można zdejmować i przestawiać (29.09.2026)
+
+**Nowe**
+- **Cienie od ognia w kominku.** Gdy ogień się pali, pada od niego ciepła plama światła na podłogę i dywan, a nogi biurka i leżące książki rzucają na nią cienie — od kominka w stronę widza, tym dłuższe, im dalej od ognia. Cienie drgają razem z płomieniem, wieczorem są wyraźniejsze, po zgaszeniu ognia gasną. Cienia żyrandola nie ma celowo: ogień jest niżej niż żyrandol, więc jego cień padałby w sufit, poza kadr.
+- **Książkę z regału można zdjąć i przestawić.** Chwyć grzbiet i: przeciągnij do koszyka (zdjęcie), na inne miejsce tego samego regału (przestawienie — na wolne miejsce albo zamiana z książką, która tam stoi) albo na rewersy. Na karcie książki stojącej na regale jest przycisk „Zdejmij do koszyka”.
+- **Atrament bez „dorabiania”.** Nagrody (za odłożenie książki, dobrą epokę, uporządkowany regał i ład chronologiczny) wypłacają się tylko za pierwszym razem. Ład chronologiczny można teraz zdobyć także przestawiając książki na pełnym regale. Zapisy sprzed tej wersji: wszystko, co już stało na regałach, liczy się jako opłacone.
+
 ## 0.6.2 — Książki z regału na rewersy i do naprawy, koszyk bez „duchów”, kominek na iPadzie (28.09.2026)
 
 **Naprawione (po teście 0.6.1)**

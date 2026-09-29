@@ -10,6 +10,7 @@
 import { LAYOUT } from "./layout.js";
 import { getAudioContext, getSoundsEnabled } from "./sound.js";
 import { setAmbient, toggleCandle, openHideoutById } from "./world.js";
+import { initCienie, setFire as setFireShadows, onCameraChangeCienie } from "./cienie.js";
 
 let api = null;
 let pora = "auto"; // "auto" | "dzien" | "wieczor"
@@ -461,6 +462,7 @@ function buildCandleHotspots() {
 function applyFire(on, instant) {
   fireEls.fire.classList.toggle("on", on);
   fireEls.glow.classList.toggle("on", on);
+  setFireShadows(on);
   if (!on && !instant) {
     fireEls.fire.classList.add("dogasa");
     setTimeout(() => fireEls.fire.classList.remove("dogasa"), 4000);
@@ -970,6 +972,7 @@ export function onCameraChange() {
   if (!api) return;
   ensureLoop();
   maybeHints();
+  onCameraChangeCienie();
   const F = LAYOUT.interactables.fireplace;
   if (fireEls) fireEls.fire.classList.toggle("in-view", api.isXInView(F.x, F.w));
 }
@@ -983,6 +986,7 @@ export function initKlimat(worldApi, opts = {}) {
   buildWindows();
   buildLamp();
   buildCandleHotspots();
+  initCienie(api, { getEvening: () => evening }); // przed kominkiem — applyFire od razu włącza cienie
   buildFireplace();
   buildClock();
   buildChandelier();

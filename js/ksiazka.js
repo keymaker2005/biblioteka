@@ -313,8 +313,10 @@ function fillContent(book, wiedza, ctx) {
   // "Do koszyka" tylko, gdy książka leży w świecie i koszyk ma jeszcze miejsce.
   // Kurz nie wchodzi w grę: zakurzonej książki w ogóle nie da się otworzyć
   // (world.js przechwytuje stuknięcie wcześniej, patrz onScenePointerDown).
-  const showBasketBtn = ctx.location === "world" && ctx.basketHasRoom !== false;
+  // Od 0.6.3 także z regału: „Zdejmij do koszyka”.
+  const showBasketBtn = (ctx.location === "world" || ctx.location === "shelf") && ctx.basketHasRoom !== false;
   dom.basketBtn.classList.toggle("hidden", !showBasketBtn);
+  dom.basketBtn.textContent = ctx.location === "shelf" ? "Zdejmij do koszyka" : "Do koszyka";
 
   // Przewiń obie kartki na górę przy każdym nowym otwarciu.
   resetPageScroll();
