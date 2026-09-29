@@ -10,7 +10,6 @@
 import { LAYOUT } from "./layout.js";
 import { getAudioContext, getSoundsEnabled } from "./sound.js";
 import { setAmbient, toggleCandle, openHideoutById } from "./world.js";
-import { initCienie, setFire as setFireShadows, onCameraChangeCienie } from "./cienie.js";
 
 let api = null;
 let pora = "auto"; // "auto" | "dzien" | "wieczor"
@@ -337,9 +336,17 @@ function stepWindows(dt, t) {
       if (lf.y > win.h + 12 || lf.x > win.w + 20 || lf.x < -20) Object.assign(lf, newLeaf(win, true));
       const color = evening > 0.6 ? "#3a2a2a" : lf.color;
       drawLeaf(g, lf.x, lf.y, lf.rot, lf.size, color, 0.9);
-      // Odbicie: lustrzane, spłaszczone, blednące w głąb podłogi.
+      // Odbicie: lustrzane, spłaszczone, blednące w głąb podłogi. Od 0.7.1 liść WYCINA dziurę
+      // w jasnej plamie okna (jak liść na tle nieba — ciemniejsza sylwetka), a na wierzchu
+      // zostaje delikatny kolor; dawniej jasny liść na jasnej plamie całkiem w niej ginął.
       const ry = (win.h - lf.y) * 0.32;
-      if (ry >= 0 && ry < rh) drawLeaf(r, lf.x + 50, ry, -lf.rot, lf.size, color, 0.55 * (1 - ry / rh));
+      if (ry >= 0 && ry < rh) {
+        const fade = 1 - ry / rh;
+        r.globalCompositeOperation = "destination-out";
+        drawLeaf(r, lf.x + 50, ry, -lf.rot, lf.size * 1.15, "#000", 0.95 * fade);
+        r.globalCompositeOperation = "source-over";
+        drawLeaf(r, lf.x + 50, ry, -lf.rot, lf.size, color, 0.35 * fade);
+      }
     });
 
     if (fx.motes) {
@@ -462,7 +469,6 @@ function buildCandleHotspots() {
 function applyFire(on, instant) {
   fireEls.fire.classList.toggle("on", on);
   fireEls.glow.classList.toggle("on", on);
-  setFireShadows(on);
   if (!on && !instant) {
     fireEls.fire.classList.add("dogasa");
     setTimeout(() => fireEls.fire.classList.remove("dogasa"), 4000);
@@ -972,7 +978,6 @@ export function onCameraChange() {
   if (!api) return;
   ensureLoop();
   maybeHints();
-  onCameraChangeCienie();
   const F = LAYOUT.interactables.fireplace;
   if (fireEls) fireEls.fire.classList.toggle("in-view", api.isXInView(F.x, F.w));
 }
@@ -986,7 +991,6 @@ export function initKlimat(worldApi, opts = {}) {
   buildWindows();
   buildLamp();
   buildCandleHotspots();
-  initCienie(api, { getEvening: () => evening }); // przed kominkiem — applyFire od razu włącza cienie
   buildFireplace();
   buildClock();
   buildChandelier();

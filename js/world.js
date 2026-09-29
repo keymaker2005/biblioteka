@@ -815,7 +815,8 @@ function coverInnerHtml(book) {
     `<div class="cover-inner">` +
     `<div class="cover-frame"></div>` +
     genreIconHtml(book.genre, "cover-genre-icon") +
-    `<span class="cover-title">${escapeHtml(book.title)}</span>` +
+    // Od 0.7.1: długi tytuł (np. „Zdążyć przed Panem Bogiem”) mniejszą czcionką — inaczej ucina się czwarta linijka.
+    `<span class="cover-title${book.title.length >= 22 ? " dlugi" : ""}">${escapeHtml(book.title)}</span>` +
     `<span class="cover-author">${escapeHtml(book.author)}</span>` +
     `</div>`
   );
@@ -1383,17 +1384,6 @@ export function getWorldApi() {
     candleEls: candleFlameByGenre,
     chandelierEl,
     isDragging: () => !!activeDrag,
-    // Od 0.7 (js/cienie.js): książki leżące na podłodze — stopa = dolna krawędź okładki.
-    floorBooks: () => {
-      const out = [];
-      for (const rt of bookRuntime.values()) {
-        if (rt.location !== "world" || rt.hiddenAway || rt.el.classList.contains("dragging")) continue;
-        const foot = rt.y + BOOK_COVER_H / 2;
-        if (foot < 650) continue;
-        out.push({ x1: rt.x - BOOK_COVER_W / 2, x2: rt.x + BOOK_COVER_W / 2, y: foot, h: 38 });
-      }
-      return out;
-    },
   };
 }
 

@@ -843,6 +843,9 @@ body {
   overflow: hidden;
   max-height: 54px;
 }
+.cover-title.dlugi {
+  font-size: 12px;
+}
 .cover-author {
   font-size: 11px;
   opacity: 0.8;

@@ -54,8 +54,8 @@
 .klimat-odbicie {
   z-index: 2;
   mix-blend-mode: screen;
-  opacity: 0.28;
-  filter: blur(2.5px);
+  opacity: 0.34;
+  filter: blur(1.5px);
   -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.5) 45%, transparent 100%);
   mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.5) 45%, transparent 100%);
 }
@@ -115,18 +115,6 @@
   40% { opacity: 1; }
   70% { opacity: 0.9; }
   100% { opacity: 0.97; }
-}
-
-/* Cienie od ognia na podłodze (0.7, js/cienie.js) — pod książkami, nad namalowaną podłogą. */
-.klimat-cienie {
-  position: absolute;
-  z-index: 5;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.9s ease;
-}
-.klimat-cienie.on {
-  opacity: 1;
 }
 
 .klimat-ogien {

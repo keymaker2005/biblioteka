@@ -6,6 +6,15 @@ Szczegóły decyzji: [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
+## 0.7.1 — Bez cieni, liście w odbiciu, długie tytuły (29.09.2026)
+
+**Zmienione po teście 0.7 na iPadzie**
+- **Cienie od ognia zdjęte.** Na malowanej ilustracji wyglądały jak warstwy nałożone na obraz, a plama światła miała widoczną krawędź. Decyzja właściciela: nie wyglądają dobrze — usunięte w całości (zdejmowanie i przestawianie książek z 0.7 zostaje).
+
+**Naprawione**
+- **Liści za oknem nie było widać w odbiciu na podłodze.** Jasny liść rysował się na jasnej plamie okna i całkiem w niej ginął. Teraz liść w odbiciu jest ciemniejszą sylwetką na tle odbitego okna (jak liść na tle nieba), z delikatnym kolorem; odbicie jest nieco wyraźniejsze i mniej rozmyte.
+- **Długi tytuł nie mieścił się na okładce** („Zdążyć przed Panem Bogiem” — ucięta czwarta linijka nachodziła na autora). Tytuły od 22 znaków mają mniejszą czcionkę; mieszczą się w całości razem z autorem.
+
 ## 0.7 — Cienie od ognia, książki z regału można zdejmować i przestawiać (29.09.2026)
 
 **Nowe**
