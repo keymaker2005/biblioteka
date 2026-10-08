@@ -1,10 +1,10 @@
 # Biblioteka — Sala Załuskich
 
 Gra przeglądarkowa 2D o sprzątaniu zabałaganionej biblioteki: sala („Sala
-Załuskich”) to przewijany świat 3720×804 px pełen porozrzucanych, zakurzonych
+Załuskich”) to przewijany świat 4960×804 px pełen porozrzucanych, zakurzonych
 i ukrytych książek. Gracz przesuwa widok palcem, zbiera książki do koszyka albo
-niesie je od razu na regał, odpowiada za sprzątanie kurzu i pajęczyn (gestem
-przecierania) oraz odnoszenie luźnych kartek do teczki.
+niesie je od razu na regał, przeciera kurz i pajęczyny, a książki na regałach
+może zdejmować i przestawiać.
 
 **Regały są według GATUNKU** (Poezja, Dramat, Powieść, Nowela i opowiadanie,
 Literatura faktu) — to warunek przyjęcia książki. Każdy regał ma inną liczbę
@@ -12,14 +12,15 @@ miejsc i chronologiczny zestaw plakietek epok pod spodem: trafienie w slot
 z pasującą epoką daje dodatkowy bonus atramentu („Dobra epoka!”), a regał
 złożony w pełnej chronologii dostaje złotą gwiazdkę „Ład chronologiczny”.
 Epoka nie wpływa na to, czy książka w ogóle trafia na regał — to tylko bonus.
+Każda nagroda atramentu wypłaca się tylko raz.
 
-To jest **Etap 1b — sala w bałaganie**: jedna sala, 30 książek, panorama
-z mini-mapą, koszyk na 6 książek, stosy (widoczna tylko górna książka), 3
-kryjówki (szuflada, fotel, zasłona), kurz i pajęczyny do przetarcia, luźne
-kartki do teczki, świece zapalające się przy ukończonym regale i żyrandol przy
-100% porządku. Grafika sali to na razie CSS (patrz `assets/README.md` — realne
-ilustracje podmienią ją automatycznie, gdy się pojawią), a czary w pasku górnym
-są celowo zablokowane — to dopiero kolejne etapy (patrz `docs/PLAN.md`).
+Stan na wersję 0.7.1: jedna sala z ilustracjami, 30 lektur z rozkładówką
+„książka w ręku”, koszyk na 6 rzeczy, stosy, 3 kryjówki, czary (Wgląd,
+Przywołanie, Skrzat), zadania (prośby czytelników na rewersach, naprawa książek
+luźnymi kartkami, pieczęcie Załuskich, porządki), pora dnia zgodna z zegarem,
+muzyka Chopina i interaktywne otoczenie (lampa, kinkiety, kominek, zegar,
+żyrandol, zasłona). Gra działa online: https://keymaker2005.github.io/biblioteka/
+— szczegóły w `docs/PLAN.md`, historia wersji w `CHANGELOG.md`.
 
 ## Jak uruchomić
 

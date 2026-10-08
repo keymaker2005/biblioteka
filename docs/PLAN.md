@@ -21,6 +21,8 @@ Wzór: *Librarian: Tidy Up the Arcane Library!* (Steam, ArtRising, 2026). Nie ro
 | 12 | **Interaktywne otoczenie z prostą fizyką:** lampa, kinkiety, kominek, zegar, żyrandol (wahadło), zasłona (sprężyna) (25.09) |
 | 13 | **Czary według planu** (Wgląd 3 / Przywołanie 5 / Skrzat 8 kropli; odblokowanie kolejnymi regałami). Przywołanie przenosi książki do koszyka; Skrzat wybiera miejsce z pasującą epoką. Ukończony regał jest matowy, bez ramki (28.09) |
 | 14 | **Więcej zadań w sali (wersja 0.6):** prośby czytelników, naprawa książek, pieczęcie Załuskich (ukryte przedmioty), porządki w otoczeniu — wybór właściciela, wszystkie cztery (28.09) |
+| 15 | **Książki z regału można zdejmować i przestawiać** (do koszyka, na inne miejsce regału — zamiana miejsc, na rewersy). Każda nagroda atramentu wypłaca się tylko raz, żeby odkładanie w kółko nie „drukowało” atramentu (wersja 0.7, prośba właściciela, 29.09) |
+| 16 | **Cienie i światło jako nakładka na ilustrację — odrzucone.** „Ray tracing” w wariancie 2D (cienie od ognia na podłodze) zrobiony w 0.7 i usunięty w 0.7.1 po teście na iPadzie: *„Cienie są warstwami nakładanymi na obraz, nie wygląda to dobrze.”* Wraca tylko z namalowanymi wariantami ilustracji (np. kominek zapalony/zgaszony), nie jako rysunek kodem (29.09) |
 
 ## Urządzenie docelowe
 
@@ -110,10 +112,11 @@ Liczby są startowe i dostroimy je po pierwszych testach żony.
 | 1. Szkic | Jedna sala, 30 książek, przeciąganie palcem i Pencilem, karta książki, podgląd przy unoszeniu rysika, zapis. Grafika tylko z CSS, bez obrazków. Czary widoczne jako zablokowane ikony | ✅ 25.09, czeka na test na iPadzie |
 | 1b. Sala w bałaganie | Przesuwana sala (4 części, ilustracje z Higgsfield), koszyk, kurz, pajęczyny, stosy, kryjówki, kartki, kinkiety i żyrandol, regały według gatunków z bonusem epoki | ✅ 25.09, czeka na test na iPadzie |
 | Fale 1–2 (po testach) | Naprawy (koszyk, przewijanie), jasna sala z połyskiem, większe napisy, widoczne kryjówki i podpowiedzi, ekran powitalny, menu, „Jak grać”, nowy dolny pasek | ✅ 25.09 |
-| Fala 3: klimat | Pora dnia, muzyka Chopin + lo-fi, liście za oknami z odbiciem w parkiecie, kurz w smudze światła, lampa, kinkiety, kominek, zegar, żyrandol, zasłona | ✅ 28.09, czeka na test na iPadzie |
+| Fala 3: klimat | Pora dnia, muzyka Chopin + lo-fi, liście za oknami z odbiciem w parkiecie, kurz w smudze światła, lampa, kinkiety, kominek, zegar, żyrandol, zasłona | ✅ 28.09, testowane na iPadzie 29.09 (poprawki w 0.6.2 i 0.7.1) |
 | Fala 4: książka w ręku | Rozkładówka z wiedzą o 30 lekturach (js/wiedza-1.js, wiedza-2.js) | ✅ 28.09, czeka na test na iPadzie |
 | 0.5 | Czary, fizyka żyrandola i zasłony, poprawki po testach | ✅ 28.09 |
-| 0.6: więcej zadań | Prośby czytelników, naprawa książek (kartki = fragmenty), pieczęcie Załuskich, porządki, lista „Zadania” | ✅ 28.09, czeka na test na iPadzie |
+| 0.6: więcej zadań | Prośby czytelników, naprawa książek (kartki = fragmenty), pieczęcie Załuskich, porządki, lista „Zadania” | ✅ 28.09, testowane na iPadzie 29.09 |
+| 0.6.2–0.7.1: po testach | Koszyk bez „duchów”, kominek na iPadzie, rewers i naprawa książki na regale, zdejmowanie i przestawianie książek z regału (nagrody raz), liście w odbiciu, długie tytuły na okładkach; cienie od ognia zrobione i zdjęte (decyzja 16) | ✅ 29.09, online |
 | 2. Rdzeń gry | Więcej lektur, kolejne sale | – |
 | 3. Czary | Atrament, Wgląd, Przywołanie, Skrzat, odnowienia | – |
 | 4. Oprawa | Grafika, muzyka i animacje zrobione w falach 1b–3; zostaje dopracowanie (skrzat, więcej animacji) | częściowo |
@@ -122,5 +125,5 @@ Liczby są startowe i dostroimy je po pierwszych testach żony.
 ## Udostępnienie
 
 - **Testy w trakcie prac:** prywatna strona (Artifact) na koncie claude.ai Zbigniewa, otwierana na iPadzie po zalogowaniu.
-- **Wersja dla żony:** darmowy hosting (GitHub Pages albo Cloudflare Pages) pod stałym linkiem. Żona otwiera link w Safari i wybiera Udostępnij → „Dodaj do ekranu początkowego”. **Publikacja wymaga osobnej zgody Zbigniewa.**
+- **Wersja dla żony:** GitHub Pages pod stałym linkiem https://keymaker2005.github.io/biblioteka/ (działa od wersji 0.6). Żona otwiera link w Safari i wybiera Udostępnij → „Dodaj do ekranu początkowego”. **Każda wysyłka nowej wersji pod link wymaga zgody Zbigniewa** („wyślij”).
 - **Zapis postępu** leży na iPadzie. Dzięki dodaniu gry do ekranu początkowego Safari go nie kasuje, a w etapie 5 dojdzie przycisk kopii zapisu.
