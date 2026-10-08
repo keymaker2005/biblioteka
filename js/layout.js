@@ -68,10 +68,10 @@ function shelf(genre, x, w, spineW, spineH, rows) {
 }
 
 const shelves = [
-  // Nowela (4): pozytywizm×3, XX — czytelnia, między oknem a stołem (ciasno, więc mniejszy regał)
+  // Nowela (4): pozytywizm×2, XX×2 — czytelnia, między oknem a stołem (ciasno, więc mniejszy regał)
   shelf("nowela", BAY1_X + 262, 290, 30, 62, [
     { c: 1, epochs: ["pozytywizm", "pozytywizm"] },
-    { c: 2, epochs: ["pozytywizm", "xx"] },
+    { c: 2, epochs: ["xx", "xx"] },
   ]),
   // Poezja (6): dawne×4, romantyzm×2 — galeria, lewa ściana
   shelf("poezja", BAY2_X + 52, 380, 38, 80, [
@@ -313,7 +313,7 @@ const zadania = {
     "page-1": "pan-tadeusz",
     "page-2": "wesele",
     "page-3": "lalka",
-    "page-4": "kamizelka",
+    "page-4": "podroze-z-herodotem",
     "page-5": "zemsta",
     "page-6": "kamienie-na-szaniec",
   },

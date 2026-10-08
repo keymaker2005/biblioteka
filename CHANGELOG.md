@@ -6,6 +6,17 @@ Szczegóły decyzji: [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
+## 0.8 — Lektury zgodne z podstawą programową (8.10.2026)
+
+**Zmienione (po sprawdzeniu listy lektur z podstawą programową, decyzja 18)**
+- **„Kamizelka” Prusa → „Proszę państwa do gazu” Borowskiego.** „Kamizelki” nie ma na liście lektur, a opowiadanie Borowskiego to lektura obowiązkowa w liceum. Stoi na regale „Nowela i opowiadanie”, który ma teraz dwa miejsca z epoki pozytywizmu i dwa z XX wieku.
+- **„Cesarz” Kapuścińskiego → „Podróże z Herodotem”.** Z Kapuścińskiego na liście lektur jest tylko ta książka (fragmenty, liceum). Ma też wyrwaną kartkę z cytatem o „zarażeniu podróżą” (dawniej kartka należała do „Kamizelki”), a pan Tadeusz prosi na rewersie właśnie o nią.
+- **Obie nowe książki mają pełne karty „książka w ręku”**, ze źródłami. Cytat Borowskiego pochodzi z tekstu w Wolnych Lekturach (domena publiczna).
+- **Poprawione zdania o statusie lektur na kartach:** „Odprawa posłów greckich”, „Nad Niemnem” i „Katarynka” są dziś tylko lekturami uzupełniającymi; przy „Panu Tadeuszu” i „Trenach” dopisane, które części są obowiązkowe.
+
+**Zapis gry**
+- Zapisy sprzed tej wersji przenoszą się same: nowa książka zajmuje miejsce starej (na regale, w koszyku albo w sali) i przejmuje wypłacone nagrody, więc regał nie gaśnie, a atrament nie nalicza się drugi raz.
+
 ## 0.7.1 — Bez cieni, liście w odbiciu, długie tytuły (29.09.2026)
 
 **Zmienione po teście 0.7 na iPadzie**

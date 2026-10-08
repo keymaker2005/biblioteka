@@ -74,7 +74,7 @@ export const WIEDZA_1 = {
     przyjeciePremiera:
       "Treny wydano w Krakowie w 1580 roku i szybko doczekały się kolejnych wydań (1583, 1585); od razu zyskały uznanie jako niezwykle osobiste świadectwo ojcowskiego bólu, łamiące ówczesne konwencje literackie.",
     przyjecieDzis:
-      "Treny uznaje się dziś za szczytowe osiągnięcie polskiego renesansu i obowiązkową lekturę szkolną — jeden z najbardziej przejmujących zapisów żałoby w literaturze europejskiej.",
+      "Treny uznaje się dziś za szczytowe osiągnięcie polskiego renesansu i lekturę szkolną (w szkole podstawowej treny VII i VIII, w liceum wybrane treny, a cały cykl w zakresie rozszerzonym) — jeden z najbardziej przejmujących zapisów żałoby w literaturze europejskiej.",
     interpretacja:
       "Cykl czytany jest jako zapis kryzysu renesansowego światopoglądu Kochanowskiego — śmierć córki podważa jego dotychczasową wiarę w stoicki spokój i boski porządek świata, do którego poeta wraca dopiero w ostatnim, XIX trenie.",
     wplyw:
@@ -149,7 +149,7 @@ export const WIEDZA_1 = {
     przyjeciePremiera:
       "Epopeja ukazała się w Paryżu w czerwcu 1834 roku, ale wśród emigrantów przyjęto ją chłodno — po klęsce powstania listopadowego czytelnicy spodziewali się dzieła w duchu walki, a dostali sielankową opowieść o grzybobraniach i polowaniach; nakład długo się nie rozchodził.",
     przyjecieDzis:
-      "Dziś Pan Tadeusz jest uznawany za polską epopeję narodową i lekturę obowiązkową, wielokrotnie ekranizowaną (m.in. film Andrzeja Wajdy z 1999 roku) i tłumaczoną na dziesiątki języków.",
+      "Dziś Pan Tadeusz jest uznawany za polską epopeję narodową i lekturę obowiązkową w szkole podstawowej (wybrane księgi), wielokrotnie ekranizowaną (m.in. film Andrzeja Wajdy z 1999 roku) i tłumaczoną na dziesiątki języków.",
     interpretacja:
       "Utwór czyta się jako idealizujące pożegnanie ze światem szlacheckiej Litwy — Mickiewicz świadomie tworzy sielankę pełną humoru i obyczajowego szczegółu, by ocalić od zapomnienia obraz ojczyzny dostępnej mu już tylko we wspomnieniu.",
     wplyw:
@@ -177,7 +177,7 @@ export const WIEDZA_1 = {
     przyjeciePremiera:
       "Sztukę wystawiono 12 stycznia 1578 roku w Jazdowie pod Warszawą w obecności króla Stefana Batorego i królowej Anny Jagiellonki; tego samego roku ukazała się drukiem w Warszawie.",
     przyjecieDzis:
-      "Odprawa posłów greckich jest dziś czytana jako pierwszy polski dramat polityczny i lektura szkolna, ceniona bardziej za wymowę pieśni chóru niż za dramaturgię akcji.",
+      "Odprawa posłów greckich jest dziś czytana jako pierwszy polski dramat polityczny; od 2024 roku jest już tylko lekturą uzupełniającą w liceum, ceniona bardziej za wymowę pieśni chóru niż za dramaturgię akcji.",
     interpretacja:
       "Pieśń chóru „Wy, którzy pospolitą rzeczą władacie” to bezpośrednie napomnienie skierowane do polskich możnych zebranych na weselu — przestroga, by nie stawiali prywaty ponad dobro państwa, bo odpowiadają za nie przed Bogiem.",
     wplyw:
@@ -358,7 +358,7 @@ export const WIEDZA_1 = {
     przyjeciePremiera:
       "Powieść wydano w 1888 roku i od razu uznano ją za najważniejsze dzieło Orzeszkowej oraz jeden z filarów pozytywistycznej powieści o pracy organicznej i pojednaniu warstw społecznych.",
     przyjecieDzis:
-      "Nad Niemnem jest dziś lekturą szkolną, uważaną za najwybitniejszą polską powieść pozytywizmu, cenioną też za panoramiczny, poetycki opis przyrody znad Niemna.",
+      "Nad Niemnem jest dziś lekturą uzupełniającą w liceum (nauczyciel może ją wybrać), uważaną za najwybitniejszą polską powieść pozytywizmu, cenioną też za panoramiczny, poetycki opis przyrody znad Niemna.",
     interpretacja:
       "Powracający w powieści motyw zbiorowej mogiły powstańców z 1863 roku spaja pokolenia i staje się dla bohaterów wezwaniem do wierności ideałom przodków oraz do pracy dla wspólnoty, a nie tylko dla własnej wygody.",
     wplyw:

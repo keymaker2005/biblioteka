@@ -82,6 +82,26 @@ function defaultState() {
   };
 }
 
+// Od 0.8 dwie książki spoza podstawy programowej zastąpiono innymi (docs/PLAN.md, decyzja 18).
+// Nowa książka przejmuje w zapisie miejsce i wypłacone nagrody starej, żeby regał nie „gasł”.
+const RENAMED_BOOKS = {
+  kamizelka: "prosze-panstwa-do-gazu",
+  cesarz: "podroze-z-herodotem",
+};
+
+function migrateRenamedBooks(parsed) {
+  const books = parsed.books && typeof parsed.books === "object" ? parsed.books : null;
+  const n = parsed.nagrody && typeof parsed.nagrody === "object" ? parsed.nagrody : null;
+  for (const [oldId, newId] of Object.entries(RENAMED_BOOKS)) {
+    if (books && books[oldId] && !books[newId]) books[newId] = books[oldId];
+    if (books) delete books[oldId];
+    if (!n) continue;
+    for (const key of ["placed", "epoch"]) {
+      if (Array.isArray(n[key])) n[key] = n[key].map((id) => (id === oldId ? newId : id));
+    }
+  }
+}
+
 function sanitizeBooksState(raw) {
   const out = defaultBooksState();
   if (!raw || typeof raw !== "object") return out;
@@ -104,6 +124,7 @@ function loadState() {
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
     if (!parsed || parsed.version !== 2) return defaultState();
+    migrateRenamedBooks(parsed);
     const fallback = defaultState();
     return {
       version: 2,

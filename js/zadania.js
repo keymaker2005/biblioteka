@@ -23,7 +23,7 @@ const REQUESTS = [
   { who: "panna Jadwiga", text: "Potrzebuję zimowego tomu „Chłopów”.", ok: (b) => b.id === "chlopi-2" },
   { who: "pani Helena", text: "Chciałabym poezję z dawnych wieków, sprzed rozbiorów.", ok: (b) => b.genre === "poezja" && b.epoch === "dawne" },
   { who: "pan Stefan", text: "Szukam powieści o kupcu zakochanym w arystokratce.", ok: (b) => b.id === "lalka" },
-  { who: "pan Tadeusz", text: "Poproszę reportaż o dworze etiopskiego cesarza.", ok: (b) => b.id === "cesarz" },
+  { who: "pan Tadeusz", text: "Poproszę reportaż o pierwszych podróżach reportera, który woził ze sobą Herodota.", ok: (b) => b.id === "podroze-z-herodotem" },
 ];
 
 const INK_REQUEST = 3;

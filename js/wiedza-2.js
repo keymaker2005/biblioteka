@@ -204,7 +204,7 @@ export const WIEDZA_2 = {
     przyjeciePremiera:
       "Nowela ukazała się w 1880 roku w prasie warszawskiej jako jeden z licznych „obrazków” Prusa opisujących codzienne życie miasta — gatunek, w którym pisarz czuł się swobodnie już jako uznany felietonista.",
     przyjecieDzis:
-      "Od dziesięcioleci to jedna z pierwszych lektur szkolnych, na których najmłodsi uczniowie poznają nowelę i motyw kontrastu — dziś ceniona za prostotę i emocjonalną celność, bez taniej sentymentalności.",
+      "Przez dziesięciolecia była jedną z pierwszych lektur, na których najmłodsi uczniowie poznawali nowelę i motyw kontrastu; od 2024 roku jest lekturą uzupełniającą. Dziś ceniona za prostotę i emocjonalną celność, bez taniej sentymentalności.",
     interpretacja:
       "To przypowieść o empatii i o tym, że drobny, pozornie błahy gest może dla drugiego człowieka znaczyć więcej niż wielkie słowa — klasyczny dla pozytywizmu apel o czynną dobroć.",
     wplyw:
@@ -243,29 +243,34 @@ export const WIEDZA_2 = {
     doSprawdzenia: [],
   },
 
-  kamizelka: {
+  // Od 0.8 zamiast „Kamizelki” (spoza podstawy programowej). Tekst w domenie publicznej (Wolne Lektury).
+  "prosze-panstwa-do-gazu": {
     oCzym:
-      "Narrator wspomina młode małżeństwo z sąsiedztwa — on cierpi na gruźlicę, ale przed żoną udaje, że zdrowieje, ona zaś udaje przed nim, że w to wierzy. Oboje karmią się nawzajem drobnymi kłamstwami z miłości, dopóki choroba nie upomni się o swoje. To jedna z najbardziej przejmujących krótkich historii polskiego realizmu.",
+      "Upalny dzień w Birkenau. Bezimienny narrator, polski więzień, idzie z komandem „Kanada” na rampę, gdzie przyjeżdża transport Żydów z Sosnowca i Będzina. Więźniowie wyładowują wagony i odbierają ludziom bagaże, a większość przybyłych trafia prosto do komór gazowych. Narrator patrzy na to z boku, czuje niezrozumiały gniew na przybyłych zamiast na oprawców i odchodzi z rampy wstrząśnięty.",
     cytat: {
-      tekst: "Któż jednak powie, że za tymi chmurami nie ma słońca?…",
-      skad: "ostatnie zdanie opowiadania",
+      tekst: "Cały obóz chodził nago.",
+      skad: "pierwsze zdanie opowiadania",
     },
     autorFakt:
-      "Zanim został pisarzem, Aleksander Głowacki (czyli Bolesław Prus) marzył o karierze naukowej i studiował nauki ścisłe — „niedoszły matematyk” stał się ostatecznie jednym z najważniejszych polskich prozaików i kronikarzem życia Warszawy.",
+      "Tadeusz Borowski urodził się w 1922 roku w Żytomierzu. W 1943 roku gestapo aresztowało go, gdy szukał zatrzymanej narzeczonej, Marii Rundo; w Auschwitz nosił numer 119 198, potem przeszedł przez kolejne obozy aż do Dachau. Zmarł w 1951 roku, mając 28 lat.",
     przyjeciePremiera:
-      "Nowela ukazała się w 1882 roku i od razu została doceniona jako mistrzowski przykład prusowskiego „obrazka” — krótkiej formy łączącej realizm obyczajowy z głęboką empatią wobec bohaterów.",
+      "Borowski pisał opowiadania oświęcimskie zaraz po wojnie w Monachium, gdzie pracował w Biurze Poszukiwania Rodzin PCK; pierwsze wyszły w tomie „Byliśmy w Oświęcimiu” (1946), napisanym razem z Januszem Nelem Siedleckim i Krystynem Olszewskim. Chłodny, rzeczowy ton i narrator, który współuczestniczy w obozowej codzienności, budziły wtedy sprzeciw części krytyków.",
     przyjecieDzis:
-      "Do dziś należy do kanonu lektur szkolnych jako wzorcowy przykład noweli z zaskakującym, ale logicznym zakończeniem; ceniona za oszczędność środków i unikanie taniego sentymentalizmu przy tak bolesnym temacie.",
+      "Dziś to lektura obowiązkowa w liceum (zakres podstawowy) i jeden z najważniejszych polskich tekstów o Zagładzie, tłumaczony na wiele języków (po angielsku jako „This Way for the Gas, Ladies and Gentlemen”).",
     interpretacja:
-      "Historia czytana jest jako opowieść o miłosierdziu kłamstwa — oboje małżonkowie wiedzą więcej, niż okazują, a ich wzajemne oszukiwanie się staje się najczystszą formą troski i miłości.",
+      "Opowiadanie czyta się jako obraz „człowieka zlagrowanego” — kogoś, komu obóz odebrał zwykłe odruchy moralne. Borowski nie pokazuje bohaterów ani męczenników, tylko system, który wciąga w zbrodnię także więźniów, i właśnie przez ten brak taryfy ulgowej oskarża go najmocniej.",
     wplyw:
-      "„Kamizelka” ugruntowała pozycję Prusa jako mistrza krótkiej formy realistycznej i bywa wskazywana jako jeden z pierwowzorów polskiej nowelistyki psychologicznej końca XIX wieku.",
+      "Razem z innymi opowiadaniami oświęcimskimi wyznaczył w polskiej literaturze sposób pisania o obozach bez patosu, w beznamiętnym, „behawiorystycznym” stylu, do którego odwołują się kolejne pokolenia piszących o Zagładzie.",
     zrodla: [
-      "https://wolnelektury.pl/katalog/lektura/kamizelka.html",
-      "https://wolnelektury.pl/media/book/txt/kamizelka.txt",
-      "https://zwierciadlo.pl/spotkania/562512,1,mial-agorafobie-zazdroscil-sienkiewiczowi-i-chcial-zostac-naukowcem-kim-naprawde-byl-boleslaw-prus.read",
+      "https://wolnelektury.pl/media/book/txt/borowski-prosze-panstwa-do-gazu.txt",
+      "https://dzieje.pl/postacie/tadeusz-borowski-1922-1951",
+      "https://zpe.gov.pl/a/cywilizacja-smierci-doswiadczenie-holocaustu-jako-proba-kultury-i-czlowieczenstwa/D2Q1Js5S6",
+      "https://zpe.gov.pl/podstawa-programowa/szkola-ponadpodstawowa/jezyk-polski",
     ],
-    doSprawdzenia: [],
+    doSprawdzenia: [
+      "pierwodruk właśnie tego opowiadania — tom „Byliśmy w Oświęcimiu” (1946) czy czasopismo (1947); później weszło do zbioru „Pożegnanie z Marią” (1948)",
+      "kto dokładnie zarzucał Borowskiemu nihilizm po wydaniu opowiadań",
+    ],
   },
 
   "sklepy-cynamonowe": {
@@ -379,32 +384,33 @@ export const WIEDZA_2 = {
     doSprawdzenia: [],
   },
 
-  cesarz: {
+  // Od 0.8 zamiast „Cesarza” (spoza podstawy programowej języka polskiego).
+  "podroze-z-herodotem": {
     oCzym:
-      "Reporter zbiera relacje dawnych dworzan etiopskiego cesarza Hajle Sellasje, próbując zrozumieć mechanikę władzy absolutnej — rytuały uległości, strach i drobne gesty, które utrzymywały cały dwór w posłuszeństwie aż do rewolucji. Z pozornie egzotycznej opowieści o odległym kraju wyłania się uniwersalny portret każdej władzy, która traci kontakt z rzeczywistością.",
+      "Kapuściński wraca do początków swojej pracy: do pierwszego wyjazdu za granicę, do Indii w 1956 roku, a potem do Chin i Afryki. Przed pierwszą podróżą redaktorka „Sztandaru Młodych”, Irena Tarłowska, dała mu „Dzieje” Herodota i ta księga stała się jego towarzyszem w drodze. Relacje z własnych podróży przeplatają się tu z opowieściami starożytnego Greka, a całość jest książką o poznawaniu obcych kultur i o samym zawodzie reportera.",
     cytat: {
-      tekst:
-        "Na szczytach nigdy nie jest ciepło. Wieją lodowate wichry, każdy stoi skulony i musi pilnować się, żeby sąsiad nie strącił go w przepaść.",
-      skad: "relacja jednego z dworzan cesarza o naturze władzy",
+      tekst: "Istnieje coś takiego jak zarażenie podróżą i jest to rodzaj choroby w gruncie rzeczy nieuleczalnej.",
+      skad: "o podróżowaniu",
     },
     autorFakt:
       "Kapuściński ukończył studia historyczne na Uniwersytecie Warszawskim, a nie dziennikarstwo — sam mówił, że był bezpośrednim świadkiem 27 rewolucji i zamachów stanu, które relacjonował z Afryki, Ameryki Łacińskiej i Azji.",
     przyjeciePremiera:
-      "Reportaż ukazał się w Polsce w 1978 roku i szybko trafił na scenę teatralną (premiera w łódzkim Teatrze Jaracza jeszcze tego samego roku); wielu ówczesnych czytelników odczytywało portret dworu Hajle Sellasje jako zawoalowaną krytykę słabnącej władzy Edwarda Gierka, choć sam autor zaprzeczał takim intencjom.",
+      "Książka ukazała się w 2004 roku nakładem krakowskiego Znaku, na trzy lata przed śmiercią autora (2007). Czytelnicy przyjęli ją jako osobistą summę reportera, który po pół wieku podróży wraca do swoich początków; w 2007 roku wyszła po angielsku jako „Travels with Herodotus” w przekładzie Klary Główczewskiej.",
     przyjecieDzis:
-      "Międzynarodowy rozgłos przyniosła dopiero głośna inscenizacja w londyńskim Royal Court Theatre w 1987 roku, która pobiła rekordy popularności; dziś książka bywa też przedmiotem sporu o granicę między reportażem a literacką fikcją, po zarzutach postawionych Kapuścińskiemu w biografii Artura Domosławskiego.",
+      "Fragmenty są dziś lekturą obowiązkową w liceum (zakres podstawowy) — to jedyna książka Kapuścińskiego na liście lektur języka polskiego. Czyta się ją jako wstęp do reportażu i do rozmowy o spotkaniu z innymi kulturami.",
     interpretacja:
-      "„Cesarz” czyta się jako uniwersalny traktat o mechanizmach władzy absolutnej i o dworskim aparacie pochlebstwa, który izoluje władcę od rzeczywistości, aż do nieuchronnego upadku — historia Etiopii staje się pretekstem do portretu każdej dyktatury.",
+      "Herodot jest tu pierwszym reporterem: kimś, kto, jak Kapuściński, jeździł po świecie i zbierał cudze opowieści, żeby zrozumieć ludzi innych niż on. Rozmowa z nim przez dwa i pół tysiąca lat pokazuje, że ciekawość świata i lęk przed obcym są stałe w historii człowieka.",
     wplyw:
-      "Książka ugruntowała reputację Kapuścińskiego jako mistrza literatury faktu i wzorca reportażu politycznego, choć spory o to, ile w niej dosłownej prawdy, a ile literackiej kreacji, na trwałe zmieniły dyskusję o granicach polskiego reportażu.",
+      "Książka utrwaliła w polskiej kulturze obraz Herodota jako patrona reporterów i domknęła wizerunek samego Kapuścińskiego jako reportera-filozofa, piszącego o Innym bardziej niż o egzotyce.",
     zrodla: [
-      "https://pl.wikiquote.org/wiki/Cesarz_(reporta%C5%BC)",
-      "https://kapuscinski.info/traktat-o-wladzy-czyli-cesarz-ryszarda-kapuscinskiego",
-      "https://www.focus.pl/artykul/kapuscinski-zmyslny-reporter",
+      "https://pl.wikiquote.org/wiki/Podr%C3%B3%C5%BCe_z_Herodotem",
+      "https://pl.wikipedia.org/wiki/Podr%C3%B3%C5%BCe_z_Herodotem",
+      "https://en.wikipedia.org/wiki/Travels_with_Herodotus",
+      "https://dzieje.pl/postacie/ryszard-kapu%C5%9Bci%C5%84ski-1932-2007",
       "https://kapuscinski.info/biografia/ciekawostki-kapuscinski/",
     ],
     doSprawdzenia: [
-      "Szczegóły inscenizacji w Royal Court Theatre (1987) — rekordy sprzedaży biletów, zakup praw przez BBC — potwierdzone w źródłach wtórnych, nie zweryfikowano bezpośrednio w archiwum teatru.",
+      "rok angielskiego przekładu (2007) — z katalogów wydawniczych, nie ze strony wydawcy",
     ],
   },
 };
