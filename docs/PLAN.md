@@ -25,6 +25,8 @@ Wzór: *Librarian: Tidy Up the Arcane Library!* (Steam, ArtRising, 2026). Nie ro
 | 16 | **Cienie i światło jako nakładka na ilustrację — odrzucone.** „Ray tracing” w wariancie 2D (cienie od ognia na podłodze) zrobiony w 0.7 i usunięty w 0.7.1 po teście na iPadzie: *„Cienie są warstwami nakładanymi na obraz, nie wygląda to dobrze.”* Wraca tylko z namalowanymi wariantami ilustracji (np. kominek zapalony/zgaszony), nie jako rysunek kodem (29.09) |
 | 17 | **Dwa poziomy trudności według podstawy programowej:** podstawowy (szkoła podstawowa kl. VII–VIII + liceum, zakres podstawowy) i zaawansowany (liceum, zakres rozszerzony + lektury uzupełniające). Poziom podstawowy to dzisiejsza gra; decyzja 8 obowiązuje na obu poziomach. Kształt — sekcja „Dwa poziomy trudności” (8.10) |
 | 18 | **Książki spoza podstawy programowej wymienione** w tym samym gatunku: *Kamizelka* → *Proszę państwa do gazu* (Borowski), *Cesarz* → *Podróże z Herodotem* (Kapuściński). Nowa książka przejmuje w zapisie miejsce i nagrody starej. Wybór Borowskiego zamiast „Artysty” Mrożka: liceum, zakres podstawowy, i tekst w domenie publicznej, więc cytat sprawdzony w oryginale (wersja 0.8, 8.10) |
+| 19 | **Gra na każdym ekranie:** telefon (poziomo), iPad i komputer; palec, rysik i myszka. Scena wypełnia cały ekran bez pustych pasów (na szerokim ekranie widać więcej sali), na niskim ekranie telefonu sala dopasowuje się do wysokości i można ją przybliżyć (dwa palce, przyciski + i −, Ctrl+kółko) i przesuwać także w pionie. Na iPadzie 13" układ bez zmian. Pion — prośba o obrócenie urządzenia (wersja 0.9, prośba właściciela, 9.10) |
+| 20 | **Kolejność prac (9.10, właściciel: „działaj po kolei, jak uważasz”):** 0.9 gra na każdym ekranie → 0.10 tło historyczne → 1.0 dwa poziomy → nowe sale. „Tło historyczne” i „Oś dziejów” zatwierdzone tym samym poleceniem |
 
 ## Urządzenie docelowe
 
@@ -35,6 +37,7 @@ Wzór: *Librarian: Tidy Up the Arcane Library!* (Steam, ArtRising, 2026). Nie ro
   - ✅ siła nacisku (na razie jej nie używamy);
   - ❌ ściśnięcie rysika, obrót i wibracja **nie są dostępne dla stron internetowych**, tylko dla aplikacji z App Store. Wszystko musi więc dać się zrobić stuknięciem.
 - Palec działa zawsze tak samo jak rysik, a pola do stuknięcia są duże.
+- **Od 0.9 także telefon i komputer** (decyzja 19): myszka działa jak palec (przecieranie z wciśniętym przyciskiem), kółko przesuwa salę, Ctrl+kółko i dwa palce przybliżają.
 
 ## Rdzeń gry (od 25.09: sprzątanie, patrz etap 1b)
 
@@ -163,7 +166,7 @@ Zapis postępu osobny dla każdego poziomu, żeby zmiana poziomu nie kasowała s
 
 **Skutek dla Sali 1 (do rozstrzygnięcia przy budowie wersji 1.0):** na poziomie podstawowym 5 z 30 książek jest spoza zakresu (Odprawa posłów greckich, Nad Niemnem, Ludzie bezdomni, Katarynka — uzupełniające; Sklepy cynamonowe — rozszerzony). Propozycja zamienników obowiązkowych w tym samym gatunku: Odprawa → *Balladyna*, Nad Niemnem → *Quo vadis* (fragm.), Ludzie bezdomni → *Syzyfowe prace* (fragm.), Katarynka → *Artysta* Mrożka, Sklepy cynamonowe → *Profesor Andrews w Warszawie* Tokarczuk. Zamiana zmienia epoki części miejsc, więc plakietki na regałach muszą zależeć od poziomu (dziś są stałe w `js/layout.js`).
 
-## Kontekst historyczny (propozycja do zatwierdzenia)
+## Kontekst historyczny (zatwierdzone 9.10, decyzja 20 — wersja 0.10)
 
 Podstawa historii wprost wymaga rozpoznawania dorobku kultury każdej epoki (np. XXXI.5 — kultura I poł. XIX w. z romantycznym mesjanizmem; XXXVI.2 — dorobek pozytywizmu i Młodej Polski). **Biblioteka Załuskich jest wprost w podstawie historii** (XXVIII.2, zakres podstawowy: „omawia rolę instytucji oświeceniowych — KEN, Biblioteka Załuskich”) — sala gry jest więc sama w sobie tematem lekcji.
 
@@ -199,7 +202,7 @@ Podstawa historii wprost wymaga rozpoznawania dorobku kultury każdej epoki (np.
 
 P = wydarzenie z zakresu podstawowego historii, R = tylko rozszerzony. Na poziomie zaawansowanym oś dostaje dodatkowe medaliony z zakresu rozszerzonego: Wielka Emigracja (XXXI.R1), powstanie krakowskie 1846 (XXXI.R2), sarmatyzm (XXIII.R3), Bitwa Warszawska 1920 (XLI.R4), rola kultury w czasie rusyfikacji i germanizacji (XXXVI.R3). Zdania wiążące fabułę z wydarzeniem (Zemsta, Latarnik, Ludzie bezdomni, Podróże z Herodotem) to interpretacje — do sprawdzenia przy pisaniu treści, jak każda karta wiedzy.
 
-**3. Opowieść sali: wędrówka zbiorów Załuskich** — karta po skompletowaniu pieczęci rozwija się w oś: otwarcie biblioteki (1747) → własność Rzeczypospolitej pod opieką KEN → wywiezienie do Petersburga po III rozbiorze (1795) → zwrot części zbiorów po traktacie ryskim (1921) → spalenie przez Niemców po powstaniu warszawskim (1944). Każda data to dział podstawy historii (XXVIII, XXVII, XLI, L). ⚠ Daty do sprawdzenia przed wpisaniem do gry.
+**3. Opowieść sali: wędrówka zbiorów Załuskich** — karta po skompletowaniu pieczęci rozwija się w oś: otwarcie biblioteki (1747) → własność Rzeczypospolitej pod opieką KEN → wywiezienie do Petersburga po III rozbiorze (1795) → zwrot części zbiorów po traktacie ryskim (1921) → spalenie przez Niemców po powstaniu warszawskim (1944). Każda data to dział podstawy historii (XXVIII, XXVII, XLI, L). Daty sprawdzone 9.10 (pl.wikipedia.org: otwarcie 8.08.1747, przejęcie przez KEN po śmierci J.A. Załuskiego 1774, wywóz XII 1794 – I 1795, częściowy zwrot po traktacie ryskim, spalenie 1944). Treści w `js/historia.js`.
 
 ## Kolejne sale (propozycja do etapu 2)
 
@@ -217,11 +220,10 @@ Tylko polscy autorzy (decyzja 2). Dokładna lista tytułów na każdy regał pow
 
 ## Do decyzji właściciela
 
-Rozstrzygnięte 8.10: dwa poziomy — tak (decyzja 17); Kamizelka i Cesarz — wymienione (decyzja 18, wersja 0.8).
+Rozstrzygnięte 8.10: dwa poziomy — tak (decyzja 17); Kamizelka i Cesarz — wymienione (decyzja 18, wersja 0.8). Rozstrzygnięte 9.10: kolejność prac (decyzja 20).
 
 Otwarte:
-1. **Kolejność dalszych prac:** 0.9 „Tło historyczne”, potem 1.0 dwa poziomy, potem nowe sale — czy inaczej?
-2. **Zamienniki na poziomie podstawowym** (5 książek spoza zakresu, sekcja „Dwa poziomy trudności”) — przyjąć zaproponowane tytuły czy inne?
+1. **Zamienniki na poziomie podstawowym** (5 książek spoza zakresu, sekcja „Dwa poziomy trudności”) — przyjąć zaproponowane tytuły czy inne?
 
 ## Etapy
 
@@ -237,7 +239,8 @@ Otwarte:
 | 0.6: więcej zadań | Prośby czytelników, naprawa książek (kartki = fragmenty), pieczęcie Załuskich, porządki, lista „Zadania” | ✅ 28.09, testowane na iPadzie 29.09 |
 | 0.6.2–0.7.1: po testach | Koszyk bez „duchów”, kominek na iPadzie, rewers i naprawa książki na regale, zdejmowanie i przestawianie książek z regału (nagrody raz), liście w odbiciu, długie tytuły na okładkach; cienie od ognia zrobione i zdjęte (decyzja 16) | ✅ 29.09, online |
 | 0.8: zgodność z podstawą | Kamizelka → Proszę państwa do gazu, Cesarz → Podróże z Herodotem (zapis przenosi się sam), poprawione zdania o statusie lektur na kartach, regał nowel z dwiema plakietkami XX wieku | ✅ 8.10, lokalnie (pod link po „wyślij”) |
-| 0.9: tło historyczne *(propozycja)* | Sekcja „Tło historyczne” na karcie, zadanie „Oś dziejów”, opowieść o zbiorach Załuskich | – |
+| 0.9: gra na każdym ekranie (decyzja 19) | Scena bez pustych pasów, przybliżanie i przesuwanie w pionie na telefonie, myszka, kółko i klawiatura na komputerze | ✅ 9.10, lokalnie |
+| 0.10: tło historyczne (decyzja 20) | Sekcja „Tło historyczne” na karcie (js/historia.js), zadanie „Oś dziejów” (8 medalionów), wędrówka zbiorów Załuskich na karcie pieczęci; tablica w galerii nad obrazem | ✅ 9.10, lokalnie |
 | 1.0: dwa poziomy (decyzja 17) | Wybór poziomu na ekranie powitalnym, osobne zapisy, pula książek, prośby i kartki według poziomu, plakietki zależne od poziomu, dopisek o statusie lektury na karcie (np. „Liceum, zakres podstawowy, fragmenty”) | – |
 | 2. Rdzeń gry | Kolejne sale według epok i prawdziwych bibliotek (sekcja „Kolejne sale”), plakietki wydarzeń zamiast epok | – |
 | 3. Czary | Atrament, Wgląd, Przywołanie, Skrzat, odnowienia | ✅ 28.09 (wersja 0.5) |

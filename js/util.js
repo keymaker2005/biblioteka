@@ -6,6 +6,18 @@ export function clamp(v, lo, hi) {
   return Math.min(hi, Math.max(lo, v));
 }
 
+/**
+ * Bieżący rozmiar sceny — jedno miejsce prawdy dla całej gry (ustawia js/game.js: updateScale).
+ * Scena wypełnia cały ekran: rozmiar logiczny = rozmiar okna / ui (ui = skala interfejsu).
+ * Na iPadzie (1366×1024) wychodzi ui = 1 i scena 1366×1024, jak dawniej.
+ *   w, h   — rozmiar sceny w pikselach logicznych (CSS --scene-w / --scene-h)
+ *   ui     — ile pikseli ekranu przypada na piksel logiczny (transform: scale na #scene)
+ *   worldH — wysokość okna świata (scena minus górny i dolny pasek)
+ */
+export const TOPBAR_H = 70;
+export const BOTTOMBAR_H = 150;
+export const view = { w: 1366, h: 1024, ui: 1, worldH: 1024 - TOPBAR_H - BOTTOMBAR_H };
+
 /** Deterministyczny generator liczb pseudolosowych (mulberry32). */
 export function mulberry32(seed) {
   let a = seed >>> 0;
@@ -87,7 +99,7 @@ export function clampRectToBounds(x, y, w, h, boundsW, boundsH, margin = 12) {
  * przerzuca się pod spód. Zawsze dociska do krawędzi z marginesem `margin`.
  */
 export function positionFloatingTip(el, anchorX, anchorY, opts = {}) {
-  const { preferAbove = true, gap = 8, margin = 12, boundsW = 1366, boundsH = 1024 } = opts;
+  const { preferAbove = true, gap = 8, margin = 12, boundsW = view.w, boundsH = view.h } = opts;
   const w = el.offsetWidth;
   const h = el.offsetHeight;
   let y = preferAbove ? anchorY - h - gap : anchorY + gap;

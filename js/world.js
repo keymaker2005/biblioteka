@@ -20,6 +20,8 @@ import {
   escapeHtml,
   brightnessVariant,
   positionFloatingTip,
+  view,
+  TOPBAR_H,
 } from "./util.js";
 import { createWipeLayer } from "./dust.js";
 import { createBasket } from "./basket.js";
@@ -36,15 +38,13 @@ import {
   playChronologyStar,
 } from "./sound.js";
 
-const LOGICAL_W = 1366;
-const LOGICAL_H = 1024;
-const WORLD_VIEW_W = 1366;
-const WORLD_VIEW_H = 804;
 const EDGE_ZONE = 120;
+const EDGE_ZONE_Y = 70; // pionowa strefa krawędzi (auto-przewijanie w pionie, gdy jest zapas w pionie)
+const ZOOM_STEP = 1.25; // krok przycisków +/− i klawiszy +/−
+const KEY_PAN_PX = 160; // krok strzałek (px ekranu)
 const AUTOSCROLL_MAX_SPEED = 34 * 60; // px/s, szczyt przy krawędzi (~34 px/klatkę @60fps)
 const DRAG_THRESHOLD = 8;
 const INERTIA_DECAY = 0.92;
-const MAX_CAMX = Math.max(0, WORLD_W - WORLD_VIEW_W);
 const IN_VIEW_MARGIN = 220; // margines (px świata) poza oknem, w którym elementy nadal liczą się jako "widoczne"
 
 const BOOK_COVER_W = 84;
@@ -75,7 +75,7 @@ let state = null;
 let hooks = { openBookModal() {}, onChange() {}, onCameraChange() {} };
 
 // --- DOM ---------------------------------------------------------------
-let sceneEl, worldViewportEl, worldLayerEl, dragLayerEl, darknessEl;
+let sceneEl, worldViewportEl, worldLayerEl, dragLayerEl, darknessEl, zoomControlsEl;
 let cartEl, basketCounterEl, basketLayerEl;
 let hoverTipEl, msgTipEl, shelfBannerEl;
 let basket;
@@ -98,11 +98,22 @@ let chandelierEl = null;
 let folderEl = null;
 let floorGlossEl = null;
 
+// Kamera: camX/camY = lewy górny róg kadru w pikselach ŚWIATA, worldZoom = skala świata.
+// Widoczny kadr ma (view.w / worldZoom) × (view.worldH / worldZoom) px świata.
+// fitZoom = świat mieści się wysokością w oknie świata; maxZoom = max(fitZoom, 1). Na iPadzie fitZoom = 1 (brak zoomu).
 let camX = 0;
-let activeDrag = null; // {type:'book'|'page'|'pan', ...}
+let camY = 0;
+let worldZoom = 1;
+let fitZoom = 1;
+let maxZoom = 1;
+let lastVisW = 0; // widoczny kadr przed ostatnią zmianą rozmiaru okna (do zachowania środka kadru)
+let lastVisH = 0;
+const touchPts = new Map(); // pointerId -> {x, y} (clientX/Y) aktywnych palców w oknie świata (szczypanie)
+let activeDrag = null; // {type:'book'|'page'|'pan'|'pinch', ...}
 let inertiaRaf = null;
 let autoScrollRaf = null;
 let autoScrollPointerX = 0;
+let autoScrollPointerY = 0;
 let autoScrollLastT = 0;
 let lastWipeSoundAt = 0;
 let ambientEvening = 0;
@@ -114,7 +125,20 @@ let seamPilasterEls = [];
 
 function sceneScale() {
   const r = sceneEl.getBoundingClientRect();
-  return r.width / LOGICAL_W || 1;
+  return r.width / view.w || 1;
+}
+
+function visW() {
+  return view.w / worldZoom;
+}
+function visH() {
+  return view.worldH / worldZoom;
+}
+function maxCamX() {
+  return Math.max(0, WORLD_W - visW());
+}
+function maxCamY() {
+  return Math.max(0, WORLD_H - visH());
 }
 
 function toSceneCoords(clientX, clientY) {
@@ -123,10 +147,14 @@ function toSceneCoords(clientX, clientY) {
   return { x: (clientX - r.left) / scale, y: (clientY - r.top) / scale };
 }
 
+/** Punkt sceny (px logiczne) -> punkt świata (uwzględnia zoom i camY). */
+function sceneToWorld(sx, sy) {
+  return { x: camX + sx / worldZoom, y: camY + (sy - TOPBAR_H) / worldZoom };
+}
+
 function toWorldCoords(clientX, clientY) {
-  const scale = sceneScale();
-  const r = worldLayerEl.getBoundingClientRect();
-  return { x: (clientX - r.left) / scale, y: (clientY - r.top) / scale };
+  const p = toSceneCoords(clientX, clientY);
+  return sceneToWorld(p.x, p.y);
 }
 
 function getLogicalRect(el) {
@@ -141,8 +169,12 @@ function getLogicalRect(el) {
   };
 }
 
+/** Punkt świata -> współrzędne SCENY (px logiczne): x i y (y uwzględnia górny pasek). */
 function worldToScreenX(wx) {
-  return wx - camX;
+  return (wx - camX) * worldZoom;
+}
+function worldToScreenY(wy) {
+  return TOPBAR_H + (wy - camY) * worldZoom;
 }
 
 // =========================================================================
@@ -231,8 +263,9 @@ export function computeStats(st) {
   const requestsDone = Math.min(LAYOUT.zadania.requestsTotal, z.requestsDone || 0);
   const sealsFound = (z.seals || []).length;
   const choresDone = (z.chores || []).length;
+  const osDone = Math.min(LAYOUT.zadania.osTotal, (z.os || []).length); // od 0.10: Oś dziejów
   const points =
-    placedBooks * 2 + dustCleared * 1 + cobwebsCleared * 2 + pagesFiled * 2 + requestsDone * 2 + sealsFound * 1 + choresDone * 1;
+    placedBooks * 2 + dustCleared * 1 + cobwebsCleared * 2 + pagesFiled * 2 + requestsDone * 2 + sealsFound * 1 + choresDone * 1 + osDone * 1;
   const totalPoints =
     BOOKS.length * 2 +
     LAYOUT.dusty * 1 +
@@ -240,7 +273,8 @@ export function computeStats(st) {
     LAYOUT.pages.length * 2 +
     LAYOUT.zadania.requestsTotal * 2 +
     LAYOUT.zadania.seals.length * 1 +
-    LAYOUT.zadania.chores.length * 1;
+    LAYOUT.zadania.chores.length * 1 +
+    LAYOUT.zadania.osTotal * 1;
   const percent = totalPoints > 0 ? Math.round((points / totalPoints) * 100) : 0;
 
   const chronologyGenres = [];
@@ -272,6 +306,8 @@ export function computeStats(st) {
     totalSeals: LAYOUT.zadania.seals.length,
     choresDone,
     totalChores: LAYOUT.zadania.chores.length,
+    osDone,
+    totalOs: LAYOUT.zadania.osTotal,
     percent: clamp(percent, 0, 100),
     chronologyGenres,
   };
@@ -317,7 +353,7 @@ function notifyChange() {
 // =========================================================================
 
 function isXInView(x, w = 0) {
-  return x + w >= camX - IN_VIEW_MARGIN && x <= camX + WORLD_VIEW_W + IN_VIEW_MARGIN;
+  return x + w >= camX - IN_VIEW_MARGIN && x <= camX + visW() + IN_VIEW_MARGIN;
 }
 
 /** Nadaje/zdejmuje klasę .in-view elementom z nieskończonymi animacjami CSS,
@@ -358,7 +394,7 @@ function checkHintFor(type, items) {
     if (isXInView(it.x, it.w || 0)) {
       state.hintsShown[type] = true;
       const screenX = worldToScreenX(it.x + (it.w || 0) / 2);
-      const screenY = (it.y || 0) + 70;
+      const screenY = worldToScreenY(it.y || 0);
       showMsgTip(HINT_TEXT[type], screenX, screenY, 3600);
       notifyChange();
       return;
@@ -411,6 +447,7 @@ function cacheDom() {
   worldLayerEl = document.getElementById("world-layer");
   dragLayerEl = document.getElementById("drag-layer");
   darknessEl = document.getElementById("darkness");
+  zoomControlsEl = document.getElementById("zoom-controls");
   cartEl = document.getElementById("cart");
   basketCounterEl = document.getElementById("basket-counter");
   basketLayerEl = document.getElementById("basket-layer");
@@ -648,12 +685,13 @@ function repositionGlows() {
   for (const genre in candleGlowByGenre) {
     const g = candleGlowByGenre[genre];
     g.el.style.left = `${worldToScreenX(g.x)}px`;
-    g.el.style.top = `${g.y}px`;
+    g.el.style.top = `${(g.y - camY) * worldZoom}px`; // #darkness leży w oknie świata (bez górnego paska)
   }
   if (chandelierGlowEl) {
     chandelierGlowEl.style.left = `${worldToScreenX(LAYOUT.chandelier.x)}px`;
-    chandelierGlowEl.style.top = `${LAYOUT.chandelier.y}px`;
+    chandelierGlowEl.style.top = `${(LAYOUT.chandelier.y - camY) * worldZoom}px`;
   }
+  darknessEl.style.setProperty("--zoom", String(worldZoom)); // skaluje plamy światła razem ze światem
 }
 
 function buildCobwebs() {
@@ -1027,7 +1065,7 @@ let hoverHideTimer = null;
 function showHoverHtml(html, screenX, screenY) {
   hoverTipEl.innerHTML = html;
   hoverTipEl.classList.remove("hidden");
-  positionFloatingTip(hoverTipEl, screenX, screenY, { preferAbove: true, gap: 10, boundsW: LOGICAL_W, boundsH: LOGICAL_H });
+  positionFloatingTip(hoverTipEl, screenX, screenY, { preferAbove: true, gap: 10 });
   clearTimeout(hoverHideTimer);
 }
 function hideHoverTip() {
@@ -1038,7 +1076,7 @@ let msgTipTimer = null;
 function showMsgTip(text, screenX, screenY, duration = 2000) {
   msgTipEl.textContent = text;
   msgTipEl.classList.remove("hidden");
-  positionFloatingTip(msgTipEl, screenX, screenY, { preferAbove: true, gap: 10, boundsW: LOGICAL_W, boundsH: LOGICAL_H });
+  positionFloatingTip(msgTipEl, screenX, screenY, { preferAbove: true, gap: 10 });
   clearTimeout(msgTipTimer);
   msgTipTimer = setTimeout(() => msgTipEl.classList.add("hidden"), duration);
 }
@@ -1376,9 +1414,14 @@ export function getWorldApi() {
     darknessEl,
     state,
     getCamX: () => camX,
+    getCamY: () => camY,
+    getZoom: () => worldZoom,
+    getVisibleW: visW,
     setCamX,
     isXInView,
     worldToScreenX,
+    worldToScreenY,
+    toWorldCoords,
     showMsgTip,
     notifyChange,
     candleEls: candleFlameByGenre,
@@ -1399,7 +1442,7 @@ function rejectDrop(rt, shelf, message) {
   shelfEl.classList.add("shake");
   setTimeout(() => shelfEl.classList.remove("shake"), 450);
   const screenX = worldToScreenX(shelf.x + shelf.w / 2);
-  showMsgTip(message, screenX, shelf.y - 6);
+  showMsgTip(message, screenX, worldToScreenY(shelf.y) - TOPBAR_H - 6); // jak dawniej: dymek wyżej niż górna krawędź regału
   returnBookHome(rt);
   notifyChange();
 }
@@ -1444,53 +1487,129 @@ function cancelAutoScroll() {
   autoScrollLastT = 0;
 }
 
-export function setCamX(x, opts = {}) {
+/** Przelicza zakres zoomu z bieżącego rozmiaru okna świata (view.worldH / view.w) i pokazuje/chowa przyciski +/−. */
+function updateFit() {
+  fitZoom = Math.max(view.worldH / WORLD_H, view.w / WORLD_W);
+  maxZoom = Math.max(fitZoom, 1);
+  if (zoomControlsEl) zoomControlsEl.classList.toggle("hidden", maxZoom - fitZoom < 0.02);
+}
+
+/**
+ * Jedyne miejsce, które zmienia kamerę: pozycja (x, y lewego górnego rogu kadru w px świata) i zoom.
+ * Zoom jest ograniczony do [fitZoom, maxZoom], pozycja do granic świata przy tym zoomie.
+ */
+export function setCamera(x, y, z, opts = {}) {
   cancelInertia();
-  camX = clamp(x, 0, MAX_CAMX);
+  worldZoom = clamp(Number.isFinite(z) ? z : worldZoom, fitZoom, maxZoom);
+  camX = clamp(x, 0, maxCamX());
+  camY = clamp(y, 0, maxCamY());
   state.camX = camX;
-  worldLayerEl.style.transform = `translateX(${-camX}px)`;
+  worldLayerEl.style.transform = `translate(${-camX * worldZoom}px, ${-camY * worldZoom}px) scale(${worldZoom})`;
+  lastVisW = visW();
+  lastVisH = visH();
   repositionGlows();
   updateInViewClasses();
   if (!opts.silent) hooks.onCameraChange();
 }
 
+export function setCamX(x, opts = {}) {
+  setCamera(x, camY, worldZoom, opts);
+}
+
+/** Zmienia zoom tak, by punkt sceny (sx, sy) został w tym samym miejscu świata. */
+function zoomAt(newZoom, sx, sy) {
+  const z = clamp(newZoom, fitZoom, maxZoom);
+  const wp = sceneToWorld(sx, sy);
+  setCamera(wp.x - sx / z, wp.y - (sy - TOPBAR_H) / z, z);
+}
+
+function zoomBy(factor) {
+  zoomAt(worldZoom * factor, view.w / 2, TOPBAR_H + view.worldH / 2);
+}
+
+/**
+ * Zmiana rozmiaru okna / obrót: przelicza zakres zoomu i kadr, zachowując środek kadru.
+ * Jeśli widok był dopasowany (zoom = fitZoom), zostaje dopasowany do nowej wysokości okna.
+ */
+export function relayoutWorld() {
+  if (!worldLayerEl || !state) return;
+  if (view.w < view.h) return; // pion: nakładka „Obróć urządzenie” zasłania salę — kadr zostaje, wróci po obrocie
+  const wasFit = worldZoom <= fitZoom + 1e-6;
+  const cx = camX + (lastVisW || visW()) / 2;
+  const cy = camY + (lastVisH || visH()) / 2;
+  updateFit();
+  const z = wasFit ? fitZoom : clamp(worldZoom, fitZoom, maxZoom);
+  worldZoom = z;
+  setCamera(cx - visW() / 2, cy - visH() / 2, z);
+  // Koszyk jest wyśrodkowany w scenie o zmiennej szerokości — rzeczy w nim idą za nim.
+  for (const rt of bookRuntime.values()) {
+    const rec = state.books[rt.id];
+    if (rt.location === "basket" && rec && rec.basketSlot != null) renderBookInBasket(rt, rec.basketSlot, true);
+  }
+  for (const rt of pageRuntime.values()) {
+    if (rt.location === "basket" && state.pagesInBasket && state.pagesInBasket[rt.id] != null) {
+      renderPageInBasket(rt, state.pagesInBasket[rt.id]);
+    }
+  }
+}
+
+/** Położenie kamery dla innych modułów (mini-mapa): lewy róg kadru, zoom i widoczna szerokość w px świata. */
+export function getCamera() {
+  return { camX, camY, zoom: worldZoom, visW: visW(), visH: visH() };
+}
+
 // Auto-przewijanie pod niesioną książką/kartką: strefa krawędzi EDGE_ZONE (120px),
 // prędkość rośnie z krzywą speed² (łagodne przyspieszanie), szczyt ~34 px/klatkę
 // (AUTOSCROLL_MAX_SPEED px/s licząc realny czas między klatkami, nie licznik klatek —
-// dzięki temu tempo nie zależy od odświeżania ekranu). `autoScrollPointerX` trzyma
+// dzięki temu tempo nie zależy od odświeżania ekranu). `autoScrollPointerX/Y` trzymają
 // NAJŚWIEŻSZĄ pozycję wskaźnika (aktualizowaną w maybeAutoScroll przy każdym ruchu),
 // więc pętla rAF zawsze liczy prędkość na bieżąco — nie zamyka się w domknięciu
 // starej wartości z chwili startu (dawny błąd: pętla raz wystartowana ignorowała
 // dalszy ruch palca/rysika, dopóki nie wyszedł ze strefy krawędzi).
+// Od 0.9: gdy jest zapas w pionie (telefon / zoom), przewija też w pionie — przy górnej
+// i dolnej krawędzi okna świata (dolna strefa pomija okolice koszyka, bo tam się odkłada).
+function autoScrollVector() {
+  const sp = toSceneCoords(autoScrollPointerX, autoScrollPointerY);
+  let fx = 0;
+  let fy = 0;
+  if (sp.x < EDGE_ZONE) fx = -(EDGE_ZONE - sp.x) / EDGE_ZONE;
+  else if (sp.x > view.w - EDGE_ZONE) fx = (sp.x - (view.w - EDGE_ZONE)) / EDGE_ZONE;
+  if (maxCamY() > 0) {
+    const top = TOPBAR_H;
+    const bottom = TOPBAR_H + view.worldH;
+    if (sp.y < top + EDGE_ZONE_Y) {
+      fy = -(top + EDGE_ZONE_Y - sp.y) / EDGE_ZONE_Y;
+    } else if (sp.y <= bottom && sp.y > bottom - EDGE_ZONE_Y) {
+      const cr = basket.rect();
+      const overCart = sp.x >= cr.x - 40 && sp.x <= cr.x + cr.width + 40;
+      if (!overCart) fy = (sp.y - (bottom - EDGE_ZONE_Y)) / EDGE_ZONE_Y;
+    }
+  }
+  return { fx: clamp(fx, -1, 1), fy: clamp(fy, -1, 1) };
+}
+
 function autoScrollTick(ts) {
   if (!autoScrollLastT) autoScrollLastT = ts;
   const dt = Math.min(50, ts - autoScrollLastT);
   autoScrollLastT = ts;
 
-  const scenePt = toSceneCoords(autoScrollPointerX, 0);
-  let dir = 0;
-  let speedFrac = 0;
-  if (scenePt.x < EDGE_ZONE) {
-    dir = -1;
-    speedFrac = (EDGE_ZONE - scenePt.x) / EDGE_ZONE;
-  } else if (scenePt.x > WORLD_VIEW_W - EDGE_ZONE) {
-    dir = 1;
-    speedFrac = (scenePt.x - (WORLD_VIEW_W - EDGE_ZONE)) / EDGE_ZONE;
-  }
-  if (dir === 0) {
+  const { fx, fy } = autoScrollVector();
+  if (fx === 0 && fy === 0) {
     cancelAutoScroll();
     return;
   }
-  speedFrac = clamp(speedFrac, 0, 1);
-  const speedPxPerSec = speedFrac * speedFrac * AUTOSCROLL_MAX_SPEED;
-  setCamX(camX + dir * speedPxPerSec * (dt / 1000));
+  // Prędkość liczona w pikselach EKRANU (po zoomie), żeby tempo było takie samo przy każdym zoomie.
+  const speedX = (Math.sign(fx) * fx * fx * AUTOSCROLL_MAX_SPEED) / worldZoom;
+  const speedY = (Math.sign(fy) * fy * fy * AUTOSCROLL_MAX_SPEED * 0.6) / worldZoom;
+  setCamera(camX + speedX * (dt / 1000), camY + speedY * (dt / 1000), worldZoom);
   autoScrollRaf = requestAnimationFrame(autoScrollTick);
 }
 
-function maybeAutoScroll(clientX) {
+function maybeAutoScroll(clientX, clientY) {
   autoScrollPointerX = clientX;
-  const scenePt = toSceneCoords(clientX, 0);
-  const nearEdge = scenePt.x < EDGE_ZONE || scenePt.x > WORLD_VIEW_W - EDGE_ZONE;
+  autoScrollPointerY = clientY;
+  const { fx, fy } = autoScrollVector();
+  const nearEdge = fx !== 0 || fy !== 0;
   if (nearEdge && !autoScrollRaf) {
     autoScrollLastT = 0;
     autoScrollRaf = requestAnimationFrame(autoScrollTick);
@@ -1513,9 +1632,11 @@ function startPan(e) {
     type: "pan",
     pointerId: e.pointerId,
     startClientX: e.clientX,
+    startClientY: e.clientY,
     startCamX: camX,
+    startCamY: camY,
     moved: false,
-    samples: [{ t: performance.now(), x: e.clientX }],
+    samples: [{ t: performance.now(), x: e.clientX, y: e.clientY }],
   };
   cancelInertia();
   try {
@@ -1527,11 +1648,15 @@ function startPan(e) {
 
 function handlePanMove(e) {
   const dx = e.clientX - activeDrag.startClientX;
-  if (!activeDrag.moved && Math.abs(dx) > DRAG_THRESHOLD) activeDrag.moved = true;
+  const dy = e.clientY - activeDrag.startClientY;
+  if (!activeDrag.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+    activeDrag.moved = true;
+    worldViewportEl.classList.add("panning");
+  }
   if (activeDrag.moved) {
-    const scale = sceneScale();
-    setCamX(activeDrag.startCamX - dx / scale);
-    activeDrag.samples.push({ t: performance.now(), x: e.clientX });
+    const k = sceneScale() * worldZoom; // px ekranu na px świata
+    setCamera(activeDrag.startCamX - dx / k, activeDrag.startCamY - dy / k, worldZoom); // oś pionowa działa tylko przy zapasie (clamp)
+    activeDrag.samples.push({ t: performance.now(), x: e.clientX, y: e.clientY });
     if (activeDrag.samples.length > 5) activeDrag.samples.shift();
   }
 }
@@ -1539,6 +1664,7 @@ function handlePanMove(e) {
 function finishPan(e) {
   const drag = activeDrag;
   activeDrag = null;
+  worldViewportEl.classList.remove("panning");
   try {
     worldViewportEl.releasePointerCapture(e.pointerId);
   } catch (err) {
@@ -1551,28 +1677,195 @@ function finishPan(e) {
     const first = samples[0];
     const last = samples[samples.length - 1];
     const dt = Math.max(1, last.t - first.t);
-    const scale = sceneScale();
-    let velocity = -((last.x - first.x) / scale / dt) * 16; // px/klatkę (~60fps)
-    runInertia(velocity);
+    const k = sceneScale() * worldZoom;
+    const vx = -((last.x - first.x) / k / dt) * 16; // px świata/klatkę (~60fps)
+    const vy = -((last.y - first.y) / k / dt) * 16;
+    runInertia(vx, vy);
   }
 }
 
-function runInertia(velocity) {
+function runInertia(vx, vy) {
   cancelInertia();
   function step() {
-    if (Math.abs(velocity) < 0.05) {
+    if (Math.hypot(vx, vy) < 0.05) {
       inertiaRaf = null;
       return;
     }
-    setCamX(camX + velocity);
-    velocity *= INERTIA_DECAY;
-    if (camX <= 0 || camX >= MAX_CAMX) {
+    setCamera(camX + vx, camY + vy, worldZoom);
+    vx *= INERTIA_DECAY;
+    vy *= INERTIA_DECAY;
+    if (camX <= 0 || camX >= maxCamX()) vx = 0; // oparcie o brzeg zeruje tylko tę oś
+    if (camY <= 0 || camY >= maxCamY()) vy = 0;
+    if (vx === 0 && vy === 0) {
       inertiaRaf = null;
       return;
     }
     inertiaRaf = requestAnimationFrame(step);
   }
   step();
+}
+
+// --- Zoom: szczypanie dwoma palcami, kółko z Ctrl, przyciski +/−, klawiatura ---------
+
+/**
+ * Drugi palec w oknie świata zamienia przesuwanie (lub niezaczęte jeszcze chwytanie książki)
+ * w szczypanie. Niesionej już książki/kartki nie przerywamy. Wołane w fazie przechwytywania,
+ * żeby zadziałać także wtedy, gdy palec trafił w książkę, kartkę, kryjówkę lub warstwę kurzu.
+ */
+function onScenePointerDownCapture(e) {
+  if (e.pointerType !== "touch") return;
+  if (!worldViewportEl.contains(e.target) || e.target.closest("#zoom-controls")) return;
+  touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (touchPts.size !== 2 || maxZoom - fitZoom < 0.02) return;
+
+  const d = activeDrag;
+  if (d) {
+    const unmovedGrab = (d.type === "book" || d.type === "page" || d.type === "hideout") && !d.moved;
+    if (d.type !== "pan" && !unmovedGrab) return;
+    if (unmovedGrab) {
+      const el = d.type === "book" ? bookRuntime.get(d.id)?.el : d.type === "page" ? pageRuntime.get(d.id)?.el : hideoutElById[d.id];
+      try {
+        el && el.releasePointerCapture(d.pointerId);
+      } catch (err) {
+        /* ignorowane */
+      }
+    } else {
+      try {
+        worldViewportEl.releasePointerCapture(d.pointerId);
+      } catch (err) {
+        /* ignorowane */
+      }
+    }
+  }
+  cancelInertia();
+  cancelAutoScroll();
+  hideHoverTip();
+  const ids = Array.from(touchPts.keys());
+  const a = touchPts.get(ids[0]);
+  const b = touchPts.get(ids[1]);
+  const mid = toSceneCoords((a.x + b.x) / 2, (a.y + b.y) / 2);
+  activeDrag = {
+    type: "pinch",
+    ids,
+    startDist: Math.max(40, Math.hypot(a.x - b.x, a.y - b.y)),
+    startZoom: worldZoom,
+    anchorWorld: sceneToWorld(mid.x, mid.y),
+  };
+  worldViewportEl.classList.remove("panning");
+  e.stopPropagation(); // drugi palec nie zaczyna żadnego chwytania
+}
+
+function handlePinchMove() {
+  const d = activeDrag;
+  const a = touchPts.get(d.ids[0]);
+  const b = touchPts.get(d.ids[1]);
+  if (!a || !b) return;
+  const dist = Math.hypot(a.x - b.x, a.y - b.y);
+  const mid = toSceneCoords((a.x + b.x) / 2, (a.y + b.y) / 2);
+  const z = clamp((d.startZoom * dist) / d.startDist, fitZoom, maxZoom);
+  // Punkt świata spod środka szczypnięcia zostaje pod środkiem (to też przesuwa kadr razem z palcami).
+  setCamera(d.anchorWorld.x - mid.x / z, d.anchorWorld.y - (mid.y - TOPBAR_H) / z, z);
+}
+
+/** Palec podniesiony/anulowany: kończy szczypanie, a pozostały palec przejmuje przesuwanie. */
+function touchEnded(e) {
+  if (e.pointerType !== "touch") return;
+  touchPts.delete(e.pointerId);
+  const d = activeDrag;
+  if (d && d.type === "pinch" && d.ids.includes(e.pointerId)) {
+    const rest = d.ids.find((id) => id !== e.pointerId);
+    const pt = touchPts.get(rest);
+    activeDrag = null;
+    if (pt) {
+      activeDrag = {
+        type: "pan",
+        pointerId: rest,
+        startClientX: pt.x,
+        startClientY: pt.y,
+        startCamX: camX,
+        startCamY: camY,
+        moved: false,
+        samples: [{ t: performance.now(), x: pt.x, y: pt.y }],
+      };
+      try {
+        worldViewportEl.setPointerCapture(rest);
+      } catch (err) {
+        /* ignorowane */
+      }
+    }
+  }
+}
+
+function onWheel(e) {
+  e.preventDefault(); // bez tego Ctrl+kółko/szczypanie na gładziku powiększałoby całą stronę
+  if (activeDrag && activeDrag.type !== "pan") return;
+  let dx = e.deltaX;
+  let dy = e.deltaY;
+  if (e.deltaMode === 1) {
+    dx *= 16;
+    dy *= 16;
+  } else if (e.deltaMode === 2) {
+    dx *= view.w;
+    dy *= view.h;
+  }
+  if (e.ctrlKey) {
+    // Ctrl+kółko albo szczypanie na gładziku (przeglądarka zgłasza je jako kółko z ctrlKey) = zoom wokół kursora.
+    const sp = toSceneCoords(e.clientX, e.clientY);
+    zoomAt(worldZoom * Math.exp(-clamp(dy, -60, 60) * 0.01), sp.x, sp.y);
+    return;
+  }
+  // Kółko / dwa palce na gładziku = przesuwanie sali w poziomie (deltaX lub deltaY, co silniejsze).
+  const k = sceneScale() * worldZoom;
+  const horiz = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+  setCamera(camX + horiz / k, camY, worldZoom);
+}
+
+function isModalOpen() {
+  return !!document.querySelector(".modal:not(.hidden), #ksiazka-overlay.visible, .zadania-karta:not(.hidden)");
+}
+
+function onKeyDown(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return; // pole tekstowe / suwak: klawisze są jego
+  if (isModalOpen() || activeDrag) return;
+  const k = sceneScale() * worldZoom;
+  switch (e.key) {
+    case "ArrowLeft":
+      setCamera(camX - KEY_PAN_PX / k, camY, worldZoom);
+      break;
+    case "ArrowRight":
+      setCamera(camX + KEY_PAN_PX / k, camY, worldZoom);
+      break;
+    case "ArrowUp":
+      setCamera(camX, camY - KEY_PAN_PX / k, worldZoom);
+      break;
+    case "ArrowDown":
+      setCamera(camX, camY + KEY_PAN_PX / k, worldZoom);
+      break;
+    case "+":
+    case "=":
+      zoomBy(ZOOM_STEP);
+      break;
+    case "-":
+    case "_":
+      zoomBy(1 / ZOOM_STEP);
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+}
+
+function wireZoomControls() {
+  worldViewportEl.addEventListener("wheel", onWheel, { passive: false });
+  document.addEventListener("keydown", onKeyDown);
+  document.getElementById("zoom-in")?.addEventListener("click", () => zoomBy(ZOOM_STEP));
+  document.getElementById("zoom-out")?.addEventListener("click", () => zoomBy(1 / ZOOM_STEP));
+  // Safari: gesty szczypania strony nie mogą powiększać sceny (gesturestart blokuje też js/game.js globalnie).
+  for (const type of ["gesturestart", "gesturechange", "gestureend"]) {
+    sceneEl.addEventListener(type, (ev) => ev.preventDefault());
+  }
 }
 
 // --- Przeciąganie książek -------------------------------------------------
@@ -1585,6 +1878,7 @@ function runInertia(velocity) {
  * nic się nie dzieje — te elementy mają własne, niezależne listenery.
  */
 function onScenePointerDown(e) {
+  if (e.pointerType === "mouse" && e.button !== 0) return; // prawy/środkowy przycisk myszy nie chwyta ani nie przesuwa
   if (activeDrag) return;
 
   const bookEl = e.target.closest(".book-item");
@@ -1592,7 +1886,7 @@ function onScenePointerDown(e) {
   const hideoutEl = !bookEl && !pageEl ? e.target.closest(".hideout") : null;
 
   if (!bookEl && !pageEl && !hideoutEl) {
-    if (e.target.closest(".slot-badge, .wipe-canvas")) return; // tylko podgląd/przecieranie, nie panoramowanie
+    if (e.target.closest(".slot-badge, .wipe-canvas, #zoom-controls")) return; // podgląd/przecieranie/przyciski zoomu, nie panoramowanie
     if (worldViewportEl.contains(e.target)) startPan(e);
     return;
   }
@@ -1650,10 +1944,13 @@ function startBookDrag(rt, e) {
   const scenePt = toSceneCoords(e.clientX, e.clientY);
   const w = bookWidth(rt);
   // Lewy górny róg książki na ekranie (grzbiet na regale stoi dolną krawędzią na półce).
+  // Książka w świecie jest na ekranie w skali worldZoom (w koszyku zawsze 1) — niesiona ma już skalę 1,12,
+  // więc punkt chwytu przeliczamy na jednostki książki (dzielenie przez z), żeby palec został na tym samym jej miejscu.
+  const z = rt.location === "basket" ? 1 : worldZoom;
   let originTop;
   if (rt.location === "basket") originTop = { x: rt.x - w / 2, y: rt.y - BOOK_COVER_H / 2 };
-  else if (rt.location === "shelf") originTop = { x: worldToScreenX(rt.x) - w / 2, y: rt.y + 70 - spineSize(rt).h };
-  else originTop = { x: worldToScreenX(rt.x) - w / 2, y: rt.y + 70 - BOOK_COVER_H / 2 };
+  else if (rt.location === "shelf") originTop = { x: worldToScreenX(rt.x) - (w * z) / 2, y: worldToScreenY(rt.y) - spineSize(rt).h * z };
+  else originTop = { x: worldToScreenX(rt.x) - (w * z) / 2, y: worldToScreenY(rt.y) - (BOOK_COVER_H * z) / 2 };
 
   activeDrag = {
     type: "book",
@@ -1665,8 +1962,8 @@ function startBookDrag(rt, e) {
     // Od 0.6.3 książkę z regału można nieść: do koszyka (zdjęcie), na inne miejsce tego regału
     // (przestawienie) albo na rewersy.
     draggable: true,
-    grabDX: scenePt.x - originTop.x,
-    grabDY: scenePt.y - originTop.y,
+    grabDX: (scenePt.x - originTop.x) / z,
+    grabDY: (scenePt.y - originTop.y) / z,
     originLocation: rt.location,
     width: w,
   };
@@ -1679,8 +1976,9 @@ function startBookDrag(rt, e) {
 
 function startPageDrag(rt, e) {
   const scenePt = toSceneCoords(e.clientX, e.clientY);
+  const z = rt.location === "basket" ? 1 : worldZoom;
   const screenX = rt.location === "basket" ? rt.x : worldToScreenX(rt.def.x);
-  const screenY = rt.location === "basket" ? rt.y : rt.def.y + 70;
+  const screenY = rt.location === "basket" ? rt.y : worldToScreenY(rt.def.y);
   activeDrag = {
     type: "page",
     id: rt.id,
@@ -1688,8 +1986,8 @@ function startPageDrag(rt, e) {
     startClientX: e.clientX,
     startClientY: e.clientY,
     moved: false,
-    grabDX: scenePt.x - (screenX - PAGE_W / 2),
-    grabDY: scenePt.y - (screenY - PAGE_H / 2),
+    grabDX: (scenePt.x - (screenX - (PAGE_W * z) / 2)) / z,
+    grabDY: (scenePt.y - (screenY - (PAGE_H * z) / 2)) / z,
   };
   try {
     rt.el.setPointerCapture(e.pointerId);
@@ -1699,6 +1997,11 @@ function startPageDrag(rt, e) {
 }
 
 function onWorldPointerMove(e) {
+  if (e.pointerType === "touch" && touchPts.has(e.pointerId)) touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (activeDrag && activeDrag.type === "pinch") {
+    handlePinchMove();
+    return;
+  }
   if (activeDrag && activeDrag.type === "pan" && activeDrag.pointerId === e.pointerId) {
     handlePanMove(e);
     return;
@@ -1739,8 +2042,9 @@ function showBookHoverTip(rt) {
   const w = bookWidth(rt);
   let html = `<strong>${escapeHtml(book.title)}</strong><span class="hover-tip-author">${escapeHtml(book.author)}</span>`;
   if (book.series) html += `<span class="hover-tip-series">Tom ${book.series.vol} z ${book.series.of}</span>`;
+  const z = rt.location === "basket" ? 1 : worldZoom;
   const screenX = rt.location === "basket" ? rt.x : worldToScreenX(rt.x);
-  const screenY = (rt.location === "basket" ? rt.y : rt.y + 70) - (rt.location === "shelf" ? spineSize(rt).h / 2 : BOOK_COVER_H / 2) - 6;
+  const screenY = (rt.location === "basket" ? rt.y : worldToScreenY(rt.y)) - ((rt.location === "shelf" ? spineSize(rt).h / 2 : BOOK_COVER_H / 2) * z) - 6;
   showHoverHtml(html, screenX, screenY);
 }
 
@@ -1764,7 +2068,7 @@ function handleBookDragMove(e) {
   const y = scenePt.y - drag.grabDY;
   applyTransform(rt.el, x, y, 0, 1.12);
 
-  maybeAutoScroll(e.clientX);
+  maybeAutoScroll(e.clientX, e.clientY);
   updateShelfHighlight(toWorldCoords(e.clientX, e.clientY));
   updateBasketHighlight(scenePt);
 }
@@ -1784,7 +2088,7 @@ function handlePageDragMove(e) {
   const x = scenePt.x - drag.grabDX;
   const y = scenePt.y - drag.grabDY;
   applyTransform(rt.el, x, y, 0, 1.15);
-  maybeAutoScroll(e.clientX);
+  maybeAutoScroll(e.clientX, e.clientY);
   updateFolderHighlight(scenePt);
   if (rt.location === "world") updateBasketHighlight(scenePt);
 }
@@ -1803,7 +2107,7 @@ function updateBasketHighlight(scenePt) {
 }
 
 function updateFolderHighlight(scenePt) {
-  const worldPt = { x: scenePt.x + camX, y: scenePt.y - 70 };
+  const worldPt = sceneToWorld(scenePt.x, scenePt.y);
   const f = LAYOUT.folder;
   const inside = worldPt.x >= f.x && worldPt.x <= f.x + f.w && worldPt.y >= f.y && worldPt.y <= f.y + f.h;
   folderEl.classList.toggle("drag-target", inside);
@@ -1816,6 +2120,7 @@ function clearDragHighlights() {
 }
 
 function onWorldPointerUp(e) {
+  touchEnded(e);
   if (activeDrag && activeDrag.type === "pan" && activeDrag.pointerId === e.pointerId) {
     finishPan(e);
     return;
@@ -1955,7 +2260,7 @@ function finishPageDrag(e) {
   clearDragHighlights();
 
   const scenePt = toSceneCoords(e.clientX, e.clientY);
-  const worldPt = { x: scenePt.x + camX, y: scenePt.y - 70 };
+  const worldPt = sceneToWorld(scenePt.x, scenePt.y);
 
   // Od 0.6 kartka wraca do SWOJEJ książki (js/zadania.js decyduje, czy pasuje).
   const hr = runDropHandlers({ kind: "page", id: rt.id, clientX: e.clientX, clientY: e.clientY, worldPt, scenePt });
@@ -1999,8 +2304,10 @@ function finishPageDrag(e) {
 }
 
 function onPointerCancelAnywhere(e) {
+  touchEnded(e);
   if (activeDrag && activeDrag.pointerId === e.pointerId) {
     if (activeDrag.type === "pan") {
+      worldViewportEl.classList.remove("panning");
       try {
         worldViewportEl.releasePointerCapture(e.pointerId);
       } catch (err) {
@@ -2086,6 +2393,8 @@ export function initWorld(gameState, gameHooks) {
 
   worldLayerEl.style.width = `${WORLD_W}px`;
   worldLayerEl.style.height = `${WORLD_H}px`;
+  updateFit();
+  worldZoom = fitZoom; // start zawsze w dopasowaniu (cała wysokość sali w oknie); na iPadzie fitZoom = 1
 
   buildBays();
   buildFurnitureFallback();
@@ -2123,7 +2432,9 @@ export function initWorld(gameState, gameHooks) {
   // poddrzewach (world-layer / basket-layer / drag-layer) zależnie od tego,
   // gdzie akurat są, więc nie da się tego rozstrzygnąć osobnymi listenerami
   // per-kontener bez gubienia zdarzeń.
+  sceneEl.addEventListener("pointerdown", onScenePointerDownCapture, true);
   sceneEl.addEventListener("pointerdown", onScenePointerDown);
+  wireZoomControls();
   worldLayerEl.addEventListener("pointerleave", (e) => {
     if (!activeDrag) hideHoverTip();
   });
@@ -2139,8 +2450,17 @@ export function initWorld(gameState, gameHooks) {
   document.addEventListener("pointercancel", onPointerCancelAnywhere);
 
   // Parametr testowy ?kamera=X ustawia widok na wybrany fragment sali (do zrzutów ekranu).
-  const camParam = Number(new URLSearchParams(location.search).get("kamera"));
-  setCamX(Number.isFinite(camParam) && camParam > 0 ? camParam : state.camX || 0, { silent: true });
+  // Test: ?zoom=Z ustawia przybliżenie (w granicach fitZoom..maxZoom), ?kameray=Y przesuwa kadr w pionie.
+  const qp = new URLSearchParams(location.search);
+  const camParam = Number(qp.get("kamera"));
+  const zoomParam = Number(qp.get("zoom"));
+  const camYParam = Number(qp.get("kameray"));
+  setCamera(
+    Number.isFinite(camParam) && camParam > 0 ? camParam : state.camX || 0,
+    Number.isFinite(camYParam) ? camYParam : 0,
+    Number.isFinite(zoomParam) && zoomParam > 0 ? zoomParam : fitZoom,
+    { silent: true }
+  );
   requestAnimationFrame(() => {
     document.querySelectorAll(".no-anim").forEach((el) => el.classList.remove("no-anim"));
   });
@@ -2150,5 +2470,5 @@ export function initWorld(gameState, gameHooks) {
     lightChandelier();
   }
 
-  return { setCamX, setAmbient };
+  return { setCamX, setAmbient, relayout: relayoutWorld };
 }

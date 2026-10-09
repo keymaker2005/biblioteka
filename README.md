@@ -14,11 +14,11 @@ złożony w pełnej chronologii dostaje złotą gwiazdkę „Ład chronologiczny
 Epoka nie wpływa na to, czy książka w ogóle trafia na regał — to tylko bonus.
 Każda nagroda atramentu wypłaca się tylko raz.
 
-Stan na wersję 0.8: jedna sala z ilustracjami, 30 lektur (zgodnych z podstawą
+Stan na wersję 0.10: gra na telefonie (poziomo), iPadzie i komputerze — palcem, rysikiem i myszką (przybliżanie na telefonie), jedna sala z ilustracjami, 30 lektur (zgodnych z podstawą
 programową — obowiązkowych albo uzupełniających) z rozkładówką
 „książka w ręku”, koszyk na 6 rzeczy, stosy, 3 kryjówki, czary (Wgląd,
 Przywołanie, Skrzat), zadania (prośby czytelników na rewersach, naprawa książek
-luźnymi kartkami, pieczęcie Załuskich, porządki), pora dnia zgodna z zegarem,
+luźnymi kartkami, pieczęcie Załuskich, porządki, „Oś dziejów”), „Tło historyczne” na karcie każdej książki, pora dnia zgodna z zegarem,
 muzyka Chopina i interaktywne otoczenie (lampa, kinkiety, kominek, zegar,
 żyrandol, zasłona). Gra działa online: https://keymaker2005.github.io/biblioteka/
 — szczegóły w `docs/PLAN.md`, historia wersji w `CHANGELOG.md`.

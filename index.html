@@ -20,15 +20,15 @@
 <body>
   <div id="app">
 
-    <!-- Nakładka pokazywana, gdy iPad trzymany jest pionowo -->
+    <!-- Nakładka pokazywana, gdy urządzenie (telefon, iPad) trzymane jest pionowo -->
     <div id="rotate-overlay" class="hidden" aria-hidden="true">
       <div class="rotate-card">
         <div class="rotate-icon">⟳</div>
-        <p>Obróć iPada poziomo</p>
+        <p>Obróć urządzenie poziomo</p>
       </div>
     </div>
 
-    <!-- Scena o stałym rozmiarze logicznym 1366×1024, skalowana przez JS (transform: scale) -->
+    <!-- Scena wypełnia cały ekran: rozmiar logiczny = okno / ui (iPad: 1366×1024), skalowana przez JS (transform: scale) -->
     <div id="scene-wrap">
       <div id="scene">
 
@@ -48,10 +48,14 @@
           </div>
         </header>
 
-        <!-- Okno świata: pokazuje fragment sali (3720×804), przesuwane poziomo -->
+        <!-- Okno świata: pokazuje fragment sali (4960×804); przesuwane palcem/myszą, na telefonie też przybliżane -->
         <main id="world-viewport" aria-label="Sala — przesuń palcem, aby się rozejrzeć">
           <div id="world-layer"></div>
           <div id="darkness"></div>
+          <div id="zoom-controls" class="hidden">
+            <button type="button" id="zoom-in" class="zoom-btn" aria-label="Przybliż" title="Przybliż (+)">+</button>
+            <button type="button" id="zoom-out" class="zoom-btn" aria-label="Oddal" title="Oddal (−)">−</button>
+          </div>
         </main>
 
         <!-- Dolny pasek: czary (lewo), koszyk (środek), atrament + porządek (prawo) -->

@@ -10,6 +10,7 @@
 import { LAYOUT } from "./layout.js";
 import { getAudioContext, getSoundsEnabled } from "./sound.js";
 import { setAmbient, toggleCandle, openHideoutById } from "./world.js";
+import { view } from "./util.js";
 
 let api = null;
 let pora = "auto"; // "auto" | "dzien" | "wieczor"
@@ -204,7 +205,7 @@ function wireGesture(target, { onTap, onDragStart, onDrag, onDragEnd }) {
 
 function sceneScale() {
   const scene = document.getElementById("scene");
-  return scene.getBoundingClientRect().width / 1366 || 1;
+  return scene.getBoundingClientRect().width / view.w || 1;
 }
 
 function klimatState() {
@@ -555,16 +556,15 @@ function kickChandelier(dOmega) {
   startPhysics();
 }
 
+// Od 0.9 (zoom świata) punkt zawieszenia i palec liczymy we współrzędnych ŚWIATA — kąt i
+// wychylenia nie zależą wtedy od zoomu ani od położenia kamery.
 function pivotScene() {
   const ch = LAYOUT.chandelier;
-  return { x: ch.pivotX - api.getCamX(), y: ch.pivotY + 70 };
+  return { x: ch.pivotX, y: ch.pivotY };
 }
 
 function pointerScene(e) {
-  const scene = document.getElementById("scene");
-  const r = scene.getBoundingClientRect();
-  const s = r.width / 1366 || 1;
-  return { x: (e.clientX - r.left) / s, y: (e.clientY - r.top) / s };
+  return api.toWorldCoords(e.clientX, e.clientY);
 }
 
 function fingerAngle(e) {
@@ -837,7 +837,7 @@ function buildCurtain() {
     if (api.isDragging()) return;
     e.stopPropagation();
     const f = pointerScene(e);
-    const localY = f.y - 70 - C.y;
+    const localY = f.y - C.y;
     g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, fx0: f.x, node: curtainNodeAt(localY), moved: false };
     try {
       hot.setPointerCapture(e.pointerId);
@@ -870,7 +870,7 @@ function buildCurtain() {
     curtain.grab = -1;
     if (!wasMoved) {
       // Stuknięcie: pchnięcie materiału w miejscu dotyku, fala rozchodzi się w górę i w dół.
-      const center = C.x - api.getCamX() + C.w / 2;
+      const center = C.x + C.w / 2;
       const dir = fx < center ? 1 : -1;
       for (let i = 1; i < CURT_N; i++) curtain.v[i] += dir * 260 * Math.exp(-((i - node) * (i - node)) / 10);
       if (!api.state.hideoutsOpened.curtain) {
@@ -961,10 +961,10 @@ function maybeHints() {
     const cx = r.x + r.w / 2;
     // Tylko gdy obiekt jest wyraźnie w kadrze (bez marginesu).
     const camX = api.getCamX();
-    if (cx < camX + 80 || cx > camX + 1366 - 80) continue;
+    if (cx < camX + 80 || cx > camX + api.getVisibleW() - 80) continue;
     shown[h.key] = true;
     lastHintAt = now;
-    setTimeout(() => api.showMsgTip(h.text, api.worldToScreenX(cx), Math.max(90, r.y + 70), 3600), 1200);
+    setTimeout(() => api.showMsgTip(h.text, api.worldToScreenX(cx), Math.max(90, api.worldToScreenY(r.y)), 3600), 1200);
     save();
     return;
   }

@@ -302,7 +302,7 @@ export const WIEDZA_1 = {
       skad: "Artur",
     },
     autorFakt:
-      "Mrożek wyemigrował z Polski w 1968 roku w proteście przeciwko udziałowi wojsk Układu Warszawskiego w inwazji na Czechosłowację i przez kolejne dekady mieszkał we Włoszech, Francji i Meksyku.",
+      "Mrożek wyjechał z Polski w 1963 roku; w 1968 ogłosił we francuskiej prasie protest przeciwko udziałowi wojsk Układu Warszawskiego w inwazji na Czechosłowację. Przez kolejne dekady mieszkał we Włoszech, Francji i Meksyku, a do Polski wrócił w 1996 roku.",
     przyjeciePremiera:
       "Światowa prapremiera Tanga odbyła się w Belgradzie w kwietniu 1965 roku — tekst dotarł tam szybciej, niż mógł zostać wystawiony w Polsce; sztuka szybko zdobyła sceny na całym świecie i uznanie krytyki jako jeden z najważniejszych dramatów powojennej Europy.",
     przyjecieDzis:

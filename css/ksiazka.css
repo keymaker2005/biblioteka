@@ -2,8 +2,9 @@
    Fala 4 — "Weź książkę do ręki": wygląd nakładki js/ksiazka.js.
    Osobny plik (obok css/styles.css, którego równolegle dotyka fala 3), ładowany
    z index.html PO nim, żeby --gold/--paper/--text-scale z :root już istniały.
-   Skala logiczna sceny to 1366×1024 (patrz #scene w css/styles.css) — wszystkie
-   wymiary tutaj są w tych samych "logicznych" pikselach. */
+   Skala logiczna sceny to okno / ui (na iPadzie 1366×1024, patrz #scene w css/styles.css) —
+   wszystkie wymiary tutaj są w tych samych "logicznych" pikselach. Rozkładówka jest
+   ograniczona do rozmiaru sceny (--scene-w/--scene-h), a pod nią zostaje miejsce na przyciski. */
 
 #ksiazka-overlay {
   position: absolute;
@@ -33,6 +34,8 @@
   position: absolute;
   inset: 0;
   perspective: 1800px;
+  --sp-w: min(1240px, calc(var(--scene-w) - 32px));
+  --sp-h: min(820px, calc(var(--scene-h) - 120px));
 }
 
 /* ---------- Okładka w locie (animacja podniesienia + otwarcia) ---------- */
@@ -79,10 +82,10 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 1240px;
-  height: 820px;
-  margin-left: -620px;
-  margin-top: -410px;
+  width: var(--sp-w);
+  height: var(--sp-h);
+  margin-left: calc(var(--sp-w) / -2);
+  margin-top: calc(var(--sp-h) / -2);
   display: flex;
   border-radius: 12px;
   overflow: hidden;
@@ -292,9 +295,78 @@
 .ksiazka-actions {
   position: absolute;
   left: 50%;
-  top: 934px;
+  top: calc(50% + var(--sp-h) / 2 + 12px);
   transform: translateX(-50%);
   display: flex;
   gap: 16px;
   z-index: 2;
+}
+
+/* ---------- Wersja 0.10: „Tło historyczne” (lewa kartka, pod cytatem) ---------- */
+
+.ksiazka-tlo {
+  margin-top: 18px;
+  padding: 12px 16px 10px;
+  border-top: 2px solid var(--gold);
+  background: rgba(120, 80, 20, 0.08);
+  border-radius: 0 0 8px 8px;
+}
+.ksiazka-tlo.hidden {
+  display: none;
+}
+.ksiazka-tlo-naglowek {
+  margin: 0 0 6px;
+  font-size: calc(20px * var(--text-scale));
+  color: #6b4a1e;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ksiazka-tlo-plakietka {
+  margin-left: auto;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid #7a5c1e;
+  background: rgba(176, 138, 62, 0.25);
+  font-size: calc(13px * var(--text-scale));
+  font-weight: normal;
+  color: #4a3410;
+}
+.ksiazka-tlo-wydarzenie {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-bottom: 4px;
+}
+.ksiazka-tlo-data {
+  font-size: calc(34px * var(--text-scale));
+  line-height: 1.1;
+  font-weight: bold;
+  color: #8a5a12;
+  letter-spacing: 0.02em;
+}
+.ksiazka-tlo-nazwa {
+  font-size: calc(19px * var(--text-scale));
+  font-weight: bold;
+}
+.ksiazka-tlo-zdanie {
+  margin: 0;
+  font-size: calc(18px * var(--text-scale));
+  line-height: 1.45;
+}
+.ksiazka-tlo-uwaga,
+.ksiazka-tlo-przypis {
+  margin: 4px 0 0;
+  font-size: calc(14px * var(--text-scale));
+  font-style: italic;
+  opacity: 0.75;
+}
+.ksiazka-tlo-uwaga::before {
+  content: "• ";
+}
+.ksiazka-tlo-uwaga.hidden,
+.ksiazka-tlo-plakietka.hidden {
+  display: none;
 }

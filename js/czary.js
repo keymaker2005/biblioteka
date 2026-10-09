@@ -164,7 +164,7 @@ function showElf(res) {
   elfEl.classList.add("visible");
   elfEl.style.transform = `translate(${x - 31}px, ${y - 118}px)`; // stoi na półce przy odłożonej książce
   const camX = api.getCamX();
-  if (x < camX || x > camX + 1366) {
+  if (x < camX || x > camX + api.getVisibleW()) {
     const book = BOOKS.find((b) => b.id === res.bookId);
     ui.showNote(`Skrzat odłożył „${book ? book.title : "książkę"}” na regał „${GENRE_BY_ID[shelf.genre].name}”.`);
   }

@@ -19,11 +19,10 @@
 
 import { BOOKS, EPOCH_BY_ID, GENRE_BY_ID, GENRE_ICONS } from "./books.js";
 import { wiedzaFor } from "./wiedza.js";
-import { shadeColor, brightnessVariant } from "./util.js";
+import { historiaFor } from "./historia.js";
+import { shadeColor, brightnessVariant, view } from "./util.js";
 import { playPaper } from "./sound.js";
 
-const LOGICAL_W = 1366;
-const LOGICAL_H = 1024;
 const FLY_W = 260;
 const FLY_H = 364;
 const LIFT_MS = 350;
@@ -55,7 +54,7 @@ let phaseTimer = null;
 function logicalRectOf(el) {
   const scene = document.getElementById("scene");
   const sceneRect = scene.getBoundingClientRect();
-  const scale = sceneRect.width / LOGICAL_W || 1;
+  const scale = sceneRect.width / view.w || 1;
   const r = el.getBoundingClientRect();
   return {
     x: (r.left - sceneRect.left) / scale,
@@ -68,7 +67,7 @@ function logicalRectOf(el) {
 function fallbackOriginRect() {
   const w = 84;
   const h = 118;
-  return { x: LOGICAL_W / 2 - w / 2, y: LOGICAL_H / 2 - h / 2, width: w, height: h };
+  return { x: view.w / 2 - w / 2, y: view.h / 2 - h / 2, width: w, height: h };
 }
 
 function clampScale(s) {
@@ -131,6 +130,16 @@ function ensureDom() {
               <p class="ksiazka-quote-text" id="ksiazka-quote-text"></p>
               <p class="ksiazka-quote-source" id="ksiazka-quote-source"></p>
             </div>
+            <section class="ksiazka-tlo hidden" id="ksiazka-tlo">
+              <h3 class="ksiazka-tlo-naglowek"><span class="ksiazka-section-icon" aria-hidden="true">🕰</span>Tło historyczne<span class="ksiazka-tlo-plakietka hidden" id="ksiazka-tlo-plakietka">zakres rozszerzony</span></h3>
+              <div class="ksiazka-tlo-wydarzenie">
+                <span class="ksiazka-tlo-data" id="ksiazka-tlo-data"></span>
+                <span class="ksiazka-tlo-nazwa" id="ksiazka-tlo-nazwa"></span>
+              </div>
+              <p class="ksiazka-tlo-zdanie" id="ksiazka-tlo-zdanie"></p>
+              <p class="ksiazka-tlo-uwaga hidden" id="ksiazka-tlo-uwaga">odczytanie, nie fakt z książki</p>
+              <p class="ksiazka-tlo-przypis" id="ksiazka-tlo-przypis"></p>
+            </section>
           </div>
         </div>
         <div class="ksiazka-spine" aria-hidden="true"></div>
@@ -190,6 +199,13 @@ function ensureDom() {
     quoteBlock: root.querySelector("#ksiazka-quote"),
     quoteText: root.querySelector("#ksiazka-quote-text"),
     quoteSource: root.querySelector("#ksiazka-quote-source"),
+    tlo: root.querySelector("#ksiazka-tlo"),
+    tloData: root.querySelector("#ksiazka-tlo-data"),
+    tloNazwa: root.querySelector("#ksiazka-tlo-nazwa"),
+    tloZdanie: root.querySelector("#ksiazka-tlo-zdanie"),
+    tloPlakietka: root.querySelector("#ksiazka-tlo-plakietka"),
+    tloUwaga: root.querySelector("#ksiazka-tlo-uwaga"),
+    tloPrzypis: root.querySelector("#ksiazka-tlo-przypis"),
     sectionAutor: root.querySelector("#ksiazka-sec-autor"),
     sectionPremiera: root.querySelector("#ksiazka-sec-premiera"),
     sectionDzis: root.querySelector("#ksiazka-sec-dzis"),
@@ -286,6 +302,18 @@ function fillContent(book, wiedza, ctx) {
     dom.quoteSource.textContent = cytat.skad ? `— ${cytat.skad}` : "";
   }
 
+  // Wersja 0.10: tło historyczne (js/historia.js).
+  const hist = historiaFor(book.id);
+  dom.tlo.classList.toggle("hidden", !hist);
+  if (hist) {
+    dom.tloData.textContent = hist.data;
+    dom.tloNazwa.textContent = hist.wydarzenie;
+    dom.tloZdanie.textContent = hist.zdanie;
+    dom.tloPlakietka.classList.toggle("hidden", hist.poziom !== "R");
+    dom.tloUwaga.classList.toggle("hidden", !hist.interpretacja);
+    dom.tloPrzypis.textContent = hist.dzial ? `podstawa programowa historii, dział ${hist.dzial}` : "";
+  }
+
   for (const { key, field } of SECTION_FIELDS) {
     setSection(dom[key], wiedza && wiedza[field]);
   }
@@ -342,8 +370,8 @@ function playOpenAnimation(originRect) {
 
   const originCX = originRect.x + originRect.width / 2;
   const originCY = originRect.y + originRect.height / 2;
-  const dx = originCX - LOGICAL_W / 2;
-  const dy = originCY - LOGICAL_H / 2;
+  const dx = originCX - view.w / 2;
+  const dy = originCY - view.h / 2;
   const scale = clampScale(originRect.width / FLY_W);
 
   dom.root.classList.remove("hidden");
@@ -410,8 +438,8 @@ function playCloseAnimation(originRect) {
   phaseTimer = setTimeout(() => {
     const originCX = originRect.x + originRect.width / 2;
     const originCY = originRect.y + originRect.height / 2;
-    const dx = originCX - LOGICAL_W / 2;
-    const dy = originCY - LOGICAL_H / 2;
+    const dx = originCX - view.w / 2;
+    const dy = originCY - view.h / 2;
     const scale = clampScale(originRect.width / FLY_W);
 
     fly.style.transformOrigin = "center center";

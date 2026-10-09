@@ -21,7 +21,7 @@
 
 /* Wieczorem światła są wyraźniejsze. */
 .pora-wieczor .glow-spot.lit-visible {
-  transform: scale(1.35);
+  transform: scale(calc(1.35 * var(--zoom, 1)));
 }
 
 /* ---------- Ustawienia: „O grze” ---------- */

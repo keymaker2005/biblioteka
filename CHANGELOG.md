@@ -6,6 +6,24 @@ Szczegóły decyzji: [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
+## 0.10 — Tło historyczne i Oś dziejów (9.10.2026)
+
+**Nowe**
+- **„Tło historyczne” na karcie każdej książki.** Data, wydarzenie i jedno–dwa zdania, jak lektura wiąże się z historią Polski (np. Bogurodzica — Grunwald 1410, Lalka — Warszawa w zaborze rosyjskim, Kamienie na szaniec — akcja pod Arsenałem 1943). Przy każdym wpisie dział podstawy programowej historii; zdania, które są odczytaniem utworu, a nie faktem z książki, mają dopisek.
+- **Zadanie „Oś dziejów”.** W galerii, nad obrazem między regałami Poezji i Dramatu, wisi tablica z 8 medalionami: Grunwald, potop szwedzki, Komisja Edukacji Narodowej, wyprawa Napoleona, powstanie listopadowe, powstanie styczniowe, wojna z bolszewikami, II wojna światowa. Przyłóż do medalionu książkę, która się z nim wiąże — +2 krople atramentu i karta z tłem. Pomyłka nic nie odbiera. Postęp w liście „Zadania” i w porządku sali.
+- **Wędrówka zbiorów Załuskich.** Karta po zebraniu pieczęci pokazuje oś czasu: otwarcie biblioteki (1747), Komisja Edukacji Narodowej (1774), wywiezienie do Petersburga (1794–1795), zwrot po traktacie ryskim, spalenie w 1944.
+
+**Poprawione**
+- Karta „Tango”: Mrożek wyjechał z Polski w 1963 roku, a w 1968 tylko zaprotestował przeciw inwazji na Czechosłowację (karta mówiła, że wyemigrował w 1968).
+
+## 0.9 — Gra na każdym ekranie (9.10.2026)
+
+**Nowe**
+- **Gra działa na telefonie, iPadzie i komputerze.** Sala wypełnia cały ekran — na szerokim monitorze bez czarnych pasów po bokach, za to z większym kawałkiem sali. Na iPadzie 13" wszystko wygląda jak dotąd.
+- **Telefon (poziomo):** sala dopasowuje się do niskiego ekranu; przybliżasz ją dwoma palcami albo przyciskami + i −, a przybliżoną przesuwasz także w górę i w dół. Niesiona książka przy krawędzi sama przewija salę w każdą stronę. Telefon trzymany pionowo prosi o obrócenie.
+- **Myszka i klawiatura:** przeciąganie książek i kartek, przecieranie kurzu (z wciśniętym przyciskiem), kółko przesuwa salę, Ctrl+kółko (albo szczypanie na gładziku) przybliża, strzałki przesuwają, + i − przybliżają.
+- Karty („książka w ręku”, zadania, menu) mieszczą się na niskim ekranie — w razie potrzeby przewijają się w środku.
+
 ## 0.8 — Lektury zgodne z podstawą programową (8.10.2026)
 
 **Zmienione (po sprawdzeniu listy lektur z podstawą programową, decyzja 18)**

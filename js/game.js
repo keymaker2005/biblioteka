@@ -9,21 +9,23 @@
 
 import { EPOCH_BY_ID, GENRE_BY_ID, GENRE_ICONS, BOOKS } from "./books.js";
 import { LAYOUT, WORLD_W } from "./layout.js";
-import { initWorld, computeStats, basketHasRoom, moveBookToBasket, getWorldApi } from "./world.js";
+import { initWorld, computeStats, basketHasRoom, moveBookToBasket, getWorldApi, getCamera, relayoutWorld } from "./world.js";
 import { openBookInHand } from "./ksiazka.js";
 import { initKlimat, onCameraChange as klimatOnCamera, setPora } from "./klimat.js";
 import { startMusic, setDucked } from "./muzyka.js";
 import { initCzary, consumeSummonTarget, refreshSpellButtons } from "./czary.js";
 import { initZadania, onCameraChangeZadania, showTaskList } from "./zadania.js";
 import { unlockAudio, setSoundsEnabled, setMusicSettings } from "./sound.js";
-import { clamp, shadeColor, brightnessVariant, formatTime, positionFloatingTip } from "./util.js";
+import { clamp, shadeColor, brightnessVariant, formatTime, positionFloatingTip, view, TOPBAR_H, BOTTOMBAR_H } from "./util.js";
 
-const LOGICAL_W = 1366;
-const LOGICAL_H = 1024;
+// Skala interfejsu: scena wypełnia cały ekran. ui = min(wysokość/1024, szerokość/1180), w granicach 0,5–1,6;
+// rozmiar logiczny sceny = rozmiar ekranu / ui. Na iPadzie (1366×1024) ui = 1 — układ jak dawniej.
+const UI_REF_H = 1024;
+const UI_REF_W = 1180;
+const UI_MIN = 0.5;
+const UI_MAX = 1.6;
 const STORAGE_KEY = "biblioteka.v2";
 const SETTINGS_KEY = "biblioteka.ustawienia";
-const WORLD_VIEW_W = 1366;
-const MAX_CAMX = Math.max(0, WORLD_W - WORLD_VIEW_W);
 const RING_R = 30;
 const RING_CIRC = 2 * Math.PI * RING_R;
 
@@ -34,13 +36,14 @@ const SPELL_INFO = {
 };
 
 const HOWTO_SLIDES = [
-  { icon: "🏛️", text: "Sala jest w nieładzie — posprzątaj ją. Przesuwaj salę palcem, mapa u góry pokazuje, gdzie jesteś." },
+  { icon: "🏛️", text: "Sala jest w nieładzie — posprzątaj ją. Przesuwaj salę palcem (na komputerze myszką albo kółkiem), mapa u góry pokazuje, gdzie jesteś. Na telefonie przybliżysz salę dwoma palcami albo przyciskami + i −." },
   { icon: "📚", text: "Zbieraj książki do koszyka i odnoś je na regały. Regały są według gatunków — ikona na okładce podpowiada gatunek." },
-  { icon: "🧹", text: "Kurz i pajęczyny: pocieraj palcem lub rysikiem." },
+  { icon: "🧹", text: "Kurz i pajęczyny: pocieraj palcem lub rysikiem (myszką — z wciśniętym przyciskiem)." },
   { icon: "🔍", text: "Szukaj kryjówek — szuflada, fotel i zasłona oznaczone lupą mogą coś skrywać. Stosy zdejmuj od góry." },
   { icon: "📄", text: "Luźne kartki wypadły z książek. Stuknij kartkę, przeczytaj fragment i przeciągnij ją na książkę, z której pochodzi — tak ją naprawisz. Kartki mieszczą się też w koszyku." },
   { icon: "📜", text: "Na biurku przy kominku czytelnicy zostawiają rewersy z prośbami. Stuknij je, znajdź właściwą książkę i połóż ją na rewersach." },
   { icon: "🔴", text: "W sali ukryto 6 pieczęci Załuskich. Szukaj ich uważnie — komplet odsłoni historię biblioteki. Porządki: przetrzyj lustro, obraz i szyby, zamieć liście." },
+  { icon: "🕰️", text: "W galerii wisi tablica „Oś dziejów” z ośmioma medalionami. Do każdego wydarzenia pasuje książka z nim związana — weź książkę do ręki, zajrzyj do „Tła historycznego” i połóż ją na medalionie. Pomyłka nic nie kosztuje." },
   { icon: "✦", text: "Bonus: plakietka pod miejscem na półce to epoka — dobra epoka daje ✦ i atrament. Porządek sali rośnie, a sala nabiera blasku." },
   { icon: "💧", text: "Czary: każdy ukończony regał odblokowuje kolejny (Wgląd, Przywołanie, Skrzat). Płacisz za nie atramentem — liczba w kropelce przy czarze to jego koszt." },
 ];
@@ -145,7 +148,7 @@ function loadState() {
       completedShelves: Array.isArray(parsed.completedShelves) ? parsed.completedShelves : [],
       // Od 0.6.3: które nagrody już wypłacono (brak = stary zapis, world.js je odtworzy).
       nagrody: parsed.nagrody && typeof parsed.nagrody === "object" ? parsed.nagrody : undefined,
-      camX: Number.isFinite(parsed.camX) ? clamp(parsed.camX, 0, MAX_CAMX) : 0,
+      camX: Number.isFinite(parsed.camX) ? clamp(parsed.camX, 0, WORLD_W) : 0,
       // Fala 3: lampa, kominek, ręcznie zapalone kinkiety (js/klimat.js pilnuje wartości domyślnych).
       klimat: parsed.klimat && typeof parsed.klimat === "object" ? parsed.klimat : {},
     };
@@ -216,7 +219,7 @@ let settings = defaultSettings();
 // DOM — referencje
 // ---------------------------------------------------------------------------
 
-let sceneEl, rotateOverlayEl;
+let sceneEl, sceneWrapEl, rotateOverlayEl;
 let inkCountEl, inkwellFillEl, inkwellBtnEl;
 let orderRingFillEl, orderRingPercentEl, orderRingBtnEl;
 let minimapTrackEl, minimapViewportEl, minimapMarkerEls;
@@ -230,6 +233,7 @@ let settingsModalEl, settingMusicOnEl, settingMusicVolumeEl, settingSoundsOnEl, 
 
 function cacheDom() {
   sceneEl = document.getElementById("scene");
+  sceneWrapEl = document.getElementById("scene-wrap");
   rotateOverlayEl = document.getElementById("rotate-overlay");
 
   inkCountEl = document.getElementById("ink-count");
@@ -292,11 +296,23 @@ function cacheDom() {
 // ---------------------------------------------------------------------------
 
 function updateScale() {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const scale = Math.min(vw / LOGICAL_W, vh / LOGICAL_H);
-  sceneEl.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  // Obszar roboczy = #scene-wrap (cały ekran pomniejszony o wycięcia: env(safe-area-inset-*)).
+  const vw = sceneWrapEl.clientWidth || window.innerWidth;
+  const vh = sceneWrapEl.clientHeight || window.innerHeight;
+  const ui = clamp(Math.min(vh / UI_REF_H, vw / UI_REF_W), UI_MIN, UI_MAX);
+  view.ui = ui;
+  view.w = vw / ui;
+  view.h = vh / ui;
+  view.worldH = Math.max(100, view.h - TOPBAR_H - BOTTOMBAR_H);
+  const root = document.documentElement.style;
+  root.setProperty("--scene-w", `${view.w}px`);
+  root.setProperty("--scene-h", `${view.h}px`);
+  root.setProperty("--world-h", `${view.worldH}px`);
+  root.setProperty("--ui", String(ui));
+  document.documentElement.classList.toggle("scene-short", view.h < 700);
+  sceneEl.style.transform = `scale(${ui})`;
   updatePortraitOverlay();
+  relayoutWorld(); // okno świata zmieniło wysokość/szerokość: przelicz zoom i kadr (środek kadru zostaje)
 }
 
 function updatePortraitOverlay() {
@@ -328,8 +344,9 @@ function updateMinimapMarkers() {
 }
 
 function updateMinimapViewport() {
-  const fracLeft = state.camX / WORLD_W;
-  const fracWidth = WORLD_VIEW_W / WORLD_W;
+  const cam = getCamera();
+  const fracLeft = cam.camX / WORLD_W;
+  const fracWidth = Math.min(1, cam.visW / WORLD_W); // szerokość kadru = widoczna szerokość / zoom
   minimapViewportEl.style.left = `${fracLeft * 100}%`;
   minimapViewportEl.style.width = `${fracWidth * 100}%`;
 }
@@ -341,7 +358,7 @@ function wireMinimapInput() {
     if (!world) return;
     const r = minimapTrackEl.getBoundingClientRect();
     const frac = clamp((clientX - r.left) / r.width, 0, 1);
-    const targetWorldX = frac * WORLD_W - WORLD_VIEW_W / 2;
+    const targetWorldX = frac * WORLD_W - getCamera().visW / 2;
     world.setCamX(targetWorldX);
   }
 
@@ -397,7 +414,7 @@ function updateOrderUI() {
 let spellTipTimer = null;
 function getLogicalRectSimple(el) {
   const sceneRect = sceneEl.getBoundingClientRect();
-  const scale = sceneRect.width / LOGICAL_W || 1;
+  const scale = sceneRect.width / view.w || 1;
   const r = el.getBoundingClientRect();
   return {
     x: (r.left - sceneRect.left) / scale,
@@ -411,7 +428,7 @@ function showHudTip(anchorEl, html) {
   const r = getLogicalRectSimple(anchorEl);
   spellTipEl.innerHTML = html;
   spellTipEl.classList.remove("hidden");
-  positionFloatingTip(spellTipEl, r.x + r.width / 2, r.y, { preferAbove: true, gap: 10, boundsW: LOGICAL_W, boundsH: LOGICAL_H });
+  positionFloatingTip(spellTipEl, r.x + r.width / 2, r.y, { preferAbove: true, gap: 10 });
   clearTimeout(spellTipTimer);
   spellTipTimer = setTimeout(() => spellTipEl.classList.add("hidden"), 3500);
 }
@@ -785,11 +802,14 @@ function wireSettingsUI() {
 function wireGlobalEvents() {
   window.addEventListener("resize", updateScale);
   window.addEventListener("orientationchange", updateScale);
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", updateScale);
   document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("pagehide", flushPlayTime);
 
   // iOS: blokada gestów szczypania i podwójnego stuknięcia (powiększanie strony).
   document.addEventListener("gesturestart", (e) => e.preventDefault());
+  document.addEventListener("gesturechange", (e) => e.preventDefault());
+  document.addEventListener("gestureend", (e) => e.preventDefault());
   document.addEventListener("dblclick", (e) => e.preventDefault());
 
   // Odblokowanie/wznowienie AudioContext przy pierwszym geście użytkownika (wymóg iOS).
@@ -836,7 +856,7 @@ function startGame() {
   initCzary(getWorldApi(), {
     buttons: spellBtnEls,
     showTip: (btn, html) => showHudTip(btn, html),
-    showNote: (text) => getWorldApi().showMsgTip(text, LOGICAL_W / 2, 130, 3400),
+    showNote: (text) => getWorldApi().showMsgTip(text, view.w / 2, 130, 3400),
   });
 
   updateInkUI();

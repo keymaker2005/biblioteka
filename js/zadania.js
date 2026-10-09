@@ -5,7 +5,8 @@
 //    przeciągasz kartkę na tę książkę.
 //  • Pieczęcie Załuskich — 6 ukrytych pieczęci; komplet odsłania kartę o historii biblioteki.
 //  • Porządki w otoczeniu — przetrzyj lustro, szybę obrazu i okna, zamieć liście.
-// Stan: state.zadania = { requestsDone, seals: [id], chores: [id] }; naprawy = state.pagesFiled.
+//  • Oś dziejów (0.10) — 8 medalionów w galerii; kładziesz na nich książkę związaną z wydarzeniem.
+// Stan: state.zadania = { requestsDone, seals: [id], chores: [id], os: [id] }; naprawy = state.pagesFiled.
 
 import { LAYOUT } from "./layout.js";
 import { BOOKS } from "./books.js";
@@ -13,7 +14,8 @@ import { wiedzaFor } from "./wiedza.js";
 import { createWipeLayer } from "./dust.js";
 import { registerDropHandler, setPageTapHandler, computeStats } from "./world.js";
 import { playPaper, playDustGone, playEpochBonus, playChronologyStar, playWipe } from "./sound.js";
-import { escapeHtml } from "./util.js";
+import { escapeHtml, view } from "./util.js";
+import { historiaFor, OS_DZIEJOW, WEDROWKA_ZALUSKICH } from "./historia.js";
 
 const Z = LAYOUT.zadania;
 
@@ -44,6 +46,7 @@ function zs() {
   if (!Number.isInteger(z.requestsDone)) z.requestsDone = 0;
   if (!Array.isArray(z.seals)) z.seals = [];
   if (!Array.isArray(z.chores)) z.chores = [];
+  if (!Array.isArray(z.os)) z.os = []; // od 0.10: Oś dziejów (id medalionów z książką)
   return z;
 }
 
@@ -56,7 +59,7 @@ function save() {
 }
 
 function note(text, ms = 3200) {
-  api.showMsgTip(text, 683, 130, ms);
+  api.showMsgTip(text, view.w / 2, 130, ms);
 }
 
 function bookById(id) {
@@ -158,7 +161,10 @@ function trayHit(worldPt) {
 }
 
 function onBookDrop(info) {
-  if (info.kind !== "book" || !trayHit(info.worldPt)) return null;
+  if (info.kind !== "book") return null;
+  const osHit = osMedalionAt(info.worldPt);
+  if (osHit) return onOsDrop(info, osHit);
+  if (!trayHit(info.worldPt)) return null;
   const z = zs();
   const req = activeRequest();
   if (!req) {
@@ -219,7 +225,7 @@ const TOL_SPINE_X = 40;
 const TOL_COVER = 20;
 
 function bookUnderPointer(info, pageId) {
-  const scale = document.getElementById("scene").getBoundingClientRect().width / 1366 || 1;
+  const scale = document.getElementById("scene").getBoundingClientRect().width / view.w || 1;
   let nearest = null;
   let nearestD = Infinity;
   for (const el of document.querySelectorAll(".book-item")) {
@@ -262,9 +268,7 @@ function onPageDrop(info) {
 
 const ZALUSKI_HTML = `
   <p>Biblioteka Załuskich — założona przez braci <strong>Józefa Andrzeja</strong> i <strong>Andrzeja Stanisława Załuskich</strong> — została otwarta dla czytelników <strong>8 sierpnia 1747 roku</strong> w Pałacu Daniłowiczowskim w Warszawie. Była jedną z pierwszych bibliotek publicznych w Europie i pierwszą polską biblioteką narodową.</p>
-  <p>Zgromadzono w niej około <strong>400 tysięcy</strong> druków, 20 tysięcy rękopisów i 40 tysięcy rycin — była największą publiczną książnicą XVIII-wiecznej Europy.</p>
-  <p>Po upadku insurekcji kościuszkowskiej, na rozkaz Katarzyny II, zbiory wywieziono do Petersburga (grudzień 1794 – styczeń 1795). Po traktacie ryskim część wróciła do Polski — w latach 1922–1935 ponad 70 tysięcy tomów.</p>
-  <p>W 1944 roku Niemcy spalili odzyskane zbiory w gmachu Biblioteki Ordynacji Krasińskich. Z książnicy Załuskich przetrwało w Polsce tylko około 2 tysięcy rękopisów i 3 tysięcy starych druków. Jej spadkobierczynią jest dziś Biblioteka Narodowa.</p>
+  <ul class="zk-os-czasu">${WEDROWKA_ZALUSKICH.map((w) => `<li><strong>${escapeHtml(w.data)}</strong><span>${escapeHtml(w.tekst)}</span></li>`).join("")}</ul>
   <p class="zk-zrodla">Źródła: pl.wikipedia.org (Biblioteka Załuskich), bn.org.pl</p>`;
 
 function buildSeals() {
@@ -349,6 +353,129 @@ function buildChores() {
 }
 
 // ---------------------------------------------------------------------------
+// Oś dziejów (0.10) — tablica medalionów w galerii
+// ---------------------------------------------------------------------------
+
+const INK_OS = 2;
+const OS_R = 20; // promień krążka (px świata)
+const OS_ZAPAS = 30; // zapas przy trafianiu w medalion (px świata) — wygoda palca i rysika
+let osDropAt = 0; // chwila ostatniego upuszczenia książki na tablicę (hover nie przykrywa wtedy komunikatu)
+const osEls = new Map(); // id medalionu -> element
+
+/** Środek krążka i-tego medalionu (współrzędne świata). */
+function osCenter(i) {
+  const o = Z.os;
+  const cellW = o.w / o.cols;
+  const rows = Math.ceil(OS_DZIEJOW.length / o.cols);
+  const cellH = o.h / rows;
+  return { x: o.x + cellW * ((i % o.cols) + 0.5), y: o.y + cellH * Math.floor(i / o.cols) + 9 + OS_R };
+}
+
+/** Medalion najbliżej punktu świata (w granicach krążka + zapas), albo null. */
+function osMedalionAt(worldPt) {
+  let best = null;
+  let bestD = Infinity;
+  OS_DZIEJOW.forEach((m, i) => {
+    const c = osCenter(i);
+    if (Math.abs(worldPt.x - c.x) > OS_R + OS_ZAPAS || Math.abs(worldPt.y - c.y) > OS_R + OS_ZAPAS) return;
+    const d = Math.hypot(worldPt.x - c.x, worldPt.y - c.y);
+    if (d < bestD) {
+      bestD = d;
+      best = m;
+    }
+  });
+  return best;
+}
+
+function osDate(m) {
+  const p = m.data.split("–");
+  return p.length === 2 ? `${p[0]}–${p[1].slice(-2)}` : m.data;
+}
+
+function renderOsMedalion(m) {
+  const el = osEls.get(m.id);
+  if (!el) return;
+  const done = zs().os.includes(m.id);
+  el.classList.toggle("zrobiony", done);
+  const b = done ? bookById(zs().osBooks && zs().osBooks[m.id]) : null;
+  el.querySelector(".os-ksiazka").textContent = done && b ? b.title : "";
+}
+
+function osInfoTip(m) {
+  const i = OS_DZIEJOW.indexOf(m);
+  const c = osCenter(i);
+  const done = zs().os.includes(m.id);
+  api.showMsgTip(
+    `${m.data} — ${m.nazwa}. ${done ? "To wydarzenie ma już swoją książkę." : "Przyłóż książkę, która się z tym wiąże"}`,
+    api.worldToScreenX(c.x),
+    Math.max(90, api.worldToScreenY(c.y + OS_R + 6)),
+    3600
+  );
+}
+
+function buildOs() {
+  const o = Z.os;
+  const board = document.createElement("div");
+  board.className = "os-tablica";
+  board.style.left = `${o.x}px`;
+  board.style.top = `${o.y}px`;
+  board.style.width = `${o.w}px`;
+  board.style.height = `${o.h}px`;
+  board.innerHTML = `<div class="os-napis">Oś dziejów</div>`;
+  api.worldLayerEl.appendChild(board);
+  const cellW = o.w / o.cols;
+  OS_DZIEJOW.forEach((m, i) => {
+    const c = osCenter(i);
+    const el = document.createElement("div");
+    el.className = "os-medalion";
+    el.style.left = `${c.x - o.x - cellW / 2}px`; // względem tablicy
+    el.style.top = `${c.y - o.y - OS_R}px`;
+    el.style.width = `${cellW}px`;
+    el.dataset.osId = m.id;
+    el.innerHTML =
+      `<div class="os-krazek"><span>${escapeHtml(osDate(m))}</span></div>` +
+      `<div class="os-podpis">${escapeHtml(m.nazwa)}</div><div class="os-ksiazka"></div>`;
+    board.appendChild(el);
+    osEls.set(m.id, el);
+    // Stuknięcie/kliknięcie i najechanie myszą/rysikiem: data, nazwa i podpowiedź.
+    el.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    });
+    el.addEventListener("click", () => osInfoTip(m));
+    el.addEventListener("pointerenter", (e) => {
+      if (e.pointerType !== "touch" && !api.isDragging() && performance.now() - osDropAt > 3000) osInfoTip(m);
+    });
+    renderOsMedalion(m);
+  });
+}
+
+function onOsDrop(info, m) {
+  osDropAt = performance.now();
+  const z = zs();
+  if (z.os.includes(m.id)) return { reject: "To wydarzenie ma już swoją książkę." };
+  if (!m.ksiazki.includes(info.id)) {
+    return { reject: "Ta książka nie wiąże się z tym wydarzeniem. Weź ją do ręki i zajrzyj do „Tła historycznego”." };
+  }
+  z.os.push(m.id);
+  if (!z.osBooks || typeof z.osBooks !== "object") z.osBooks = {};
+  z.osBooks[m.id] = info.id;
+  addInk(INK_OS);
+  playEpochBonus();
+  renderOsMedalion(m);
+  const book = bookById(info.id);
+  const h = historiaFor(info.id);
+  showCard(
+    `Oś dziejów: ${m.data} ${m.nazwa}`,
+    `<p><strong>${escapeHtml(book.title)}</strong> — ${escapeHtml(book.author)}</p>` +
+      (h ? `<p>${escapeHtml(h.zdanie)}</p>` : "") +
+      `<p class="zk-rada">Medalion zaświecił. Nagroda: ${INK_OS} krople atramentu. (${z.os.length}/${OS_DZIEJOW.length})</p>`
+  );
+  save();
+  return { then: "basket" };
+}
+
+// ---------------------------------------------------------------------------
 // Panel „Zadania” — wszystko w jednym miejscu
 // ---------------------------------------------------------------------------
 
@@ -366,6 +493,7 @@ export function showTaskList() {
       row("Prośby czytelników", s.requestsDone, s.totalRequests) +
       row("Pieczęcie Załuskich", s.sealsFound, s.totalSeals) +
       row("Porządki (lustro, obraz, okna, liście)", s.choresDone, s.totalChores) +
+      row("Oś dziejów", s.osDone, s.totalOs) +
       `</ul><p class="zk-rada">Bonus: książki na miejscach swojej epoki — ${s.goodEpoch}/${s.totalBooks}.</p>`
   );
 }
@@ -376,6 +504,7 @@ export function showTaskList() {
 
 const HINTS = [
   { key: "rewersy", text: "Na biurku czytelnicy zostawiają rewersy z prośbami — stuknij je.", rect: () => LAYOUT.folder },
+  { key: "os", text: "Na ścianie galerii wisi „Oś dziejów” — przyłóż do medalionu książkę, która wiąże się z tym wydarzeniem.", rect: () => Z.os },
   { key: "lustro", text: "Lustro jest zakurzone — przetrzyj je palcem lub rysikiem.", rect: () => Z.chores[0] },
   { key: "liscie", text: "Wiatr nawiał liści — zamieć je, pocierając palcem.", rect: () => Z.chores[4] },
 ];
@@ -390,10 +519,10 @@ export function onCameraChangeZadania() {
     if (shown[h.key]) continue;
     const r = h.rect();
     const cx = r.x + (r.w || 0) / 2;
-    if (cx < camX + 80 || cx > camX + 1366 - 80) continue;
+    if (cx < camX + 80 || cx > camX + api.getVisibleW() - 80) continue;
     shown[h.key] = true;
     lastHintAt = t;
-    setTimeout(() => api.showMsgTip(h.text, api.worldToScreenX(cx), Math.max(90, r.y + 60), 3800), 1500);
+    setTimeout(() => api.showMsgTip(h.text, api.worldToScreenX(cx), Math.max(90, api.worldToScreenY(r.y) - 10), 3800), 1500);
     save();
     return;
   }
@@ -407,6 +536,7 @@ export function initZadania(worldApi) {
   buildTray();
   buildSeals();
   buildChores();
+  buildOs();
   markDamagedBooks();
   registerDropHandler(onBookDrop);
   registerDropHandler(onPageDrop);

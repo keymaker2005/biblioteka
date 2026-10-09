@@ -109,6 +109,22 @@ async function main() {
     check(`meble ${f.id} w granicach świata`, inWorldBounds(f.x, f.y, f.w, f.h, LAYOUT.world));
   }
 
+  console.log("== Oś dziejów (0.10) ==");
+  const { OS_DZIEJOW } = await import(pathToFileURL(path.join(ROOT, "js/historia.js")));
+  const os = LAYOUT.zadania.os;
+  check(`osTotal === OS_DZIEJOW.length (${OS_DZIEJOW.length})`, LAYOUT.zadania.osTotal === OS_DZIEJOW.length);
+  check("tablica osi w granicach świata", inWorldBounds(os.x, os.y, os.w, os.h, LAYOUT.world));
+  const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  for (const sh of LAYOUT.shelves) check(`tablica osi nie nachodzi na regał ${sh.genre}`, !hit(os, sh));
+  for (const w of LAYOUT.windows) check(`tablica osi nie nachodzi na okno ${w.id}`, !hit(os, w));
+  for (const h of LAYOUT.hideouts) check(`tablica osi nie nachodzi na kryjówkę ${h.id}`, !hit(os, h));
+  for (const c of LAYOUT.zadania.chores) check(`tablica osi nie nachodzi na porządek ${c.id}`, !hit(os, c));
+  check("tablica osi nie nachodzi na obraz", !hit(os, LAYOUT.furniture.find((f) => f.id === "painting-2")));
+  check("tablica osi nie nachodzi na teczkę", !hit(os, LAYOUT.folder));
+  for (const c of LAYOUT.candles) check(`tablica osi nie zasłania kinkietu ${c.genre}`, !hit(os, { x: c.x - 14, y: c.y - 30, w: 28, h: 60 }));
+  for (const sl of LAYOUT.zadania.seals) check(`tablica osi nie zasłania pieczęci ${sl.id}`, !hit(os, { x: sl.x - 15, y: sl.y - 15, w: 30, h: 30 }));
+  for (const sp of LAYOUT.spots) check(`tablica osi nie zasłania miejsca ${sp.id}`, !hit(os, { x: sp.x - 36, y: sp.y - 50, w: 72, h: 100 }));
+
   console.log("== Bays ==");
   check("bays.length === 4", LAYOUT.bays.length === 4);
   const totalBayWidth = LAYOUT.bays.reduce((n, b) => n + b.width, 0);

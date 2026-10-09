@@ -337,6 +337,11 @@ const zadania = {
     { id: "liscie-3", label: "Liście przy drzwiach galerii", texture: "leaves", x: BAY2_X + 60, y: 700, w: 150, h: 64 },
   ],
   requestsTotal: 6,
+  // Wersja 0.10 — „Oś dziejów”: tablica 8 medalionów (4 kolumny × 2 rzędy) w galerii, na środkowym
+  // panelu ściany nad obrazem (między regałami poezji i dramatu; jedyne wolne miejsce, którego nie zajmują
+  // regały, kinkiety, obraz ani książka na taboretcie). Zasłania tylko malowany fryz i ornament panelu.
+  os: { x: BAY2_X + 448, y: 22, w: 344, h: 164, cols: 4 },
+  osTotal: 8,
 };
 
 // ---------------------------------------------------------------------------
