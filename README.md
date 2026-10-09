@@ -14,7 +14,7 @@ złożony w pełnej chronologii dostaje złotą gwiazdkę „Ład chronologiczny
 Epoka nie wpływa na to, czy książka w ogóle trafia na regał — to tylko bonus.
 Każda nagroda atramentu wypłaca się tylko raz.
 
-Stan na wersję 0.10: gra na telefonie (poziomo), iPadzie i komputerze — palcem, rysikiem i myszką (przybliżanie na telefonie), jedna sala z ilustracjami, 30 lektur (zgodnych z podstawą
+Stan na wersję 1.0: dwa poziomy trudności (podstawowy i zaawansowany, osobne zapisy), gra na telefonie (poziomo), iPadzie i komputerze — palcem, rysikiem i myszką (przybliżanie na telefonie), jedna sala z ilustracjami, 30 lektur na każdym poziomie, 35 tytułów razem (zgodnych z podstawą
 programową — obowiązkowych albo uzupełniających) z rozkładówką
 „książka w ręku”, koszyk na 6 rzeczy, stosy, 3 kryjówki, czary (Wgląd,
 Przywołanie, Skrzat), zadania (prośby czytelników na rewersach, naprawa książek

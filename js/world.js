@@ -10,15 +10,14 @@
 // hooks.onCameraChange() przy każdej zmianie kamery (tylko odświeżenie minimapy).
 
 import { LAYOUT, WORLD_W, WORLD_H } from "./layout.js";
-import { BOOKS, EPOCH_BY_ID, GENRE_BY_ID, GENRE_ICONS } from "./books.js";
+import { BOOKS, GENRE_BY_ID, GENRE_ICONS } from "./books.js";
+import { ksiazkiPoziomu, idBazowe, idNaMiejscu, epokaKsiazki, epokaInfo, kolorOprawy, kolorPlakietki, bonusEpoki } from "./poziomy.js";
 import {
   clamp,
   mulberry32,
   hashString,
   seededShuffle,
-  shadeColor,
   escapeHtml,
-  brightnessVariant,
   positionFloatingTip,
   view,
   TOPBAR_H,
@@ -66,7 +65,6 @@ const HINT_TEXT = {
 };
 
 const INK_PLACE = 1;
-const INK_EPOCH_BONUS = 1;
 const INK_SHELF_COMPLETE = 5;
 const INK_CHRONOLOGY = 5;
 const INK_MAX = 20;
@@ -183,8 +181,10 @@ function worldToScreenY(wy) {
 
 function computeAssignment(seed) {
   const rngSpots = mulberry32(seed >>> 0);
-  const bookIds = BOOKS.map((b) => b.id);
-  const shuffledBooks = seededShuffle(bookIds, rngSpots);
+  // Losowanie idzie po zestawie bazowym (30 książek jak do 0.10), a na poziomie podstawowym nowa książka
+  // zajmuje dokładnie miejsce i rolę (stos, kryjówka, kurz) swojej poprzedniczki z ZAMIANY_PODSTAWOWY.
+  const bookIds = idBazowe();
+  const shuffledBooks = seededShuffle(bookIds, rngSpots).map((id) => idNaMiejscu(id));
   const spots = LAYOUT.spots;
   const homeSpot = new Map();
   const spotBook = new Map();
@@ -246,13 +246,14 @@ function isShelfFull(genre) {
 export function computeStats(st) {
   let placedBooks = 0;
   let goodEpoch = 0;
-  for (const book of BOOKS) {
+  const ksiazki = ksiazkiPoziomu();
+  for (const book of ksiazki) {
     const rec = st.books[book.id];
     if (rec && rec.where === "shelf") {
       placedBooks++;
       const shelf = LAYOUT.shelfByGenre[book.genre];
       const slot = shelf && shelf.slots[rec.shelfSlot];
-      if (slot && slot.epoch === book.epoch) goodEpoch++;
+      if (slot && slot.epoch === epokaKsiazki(book)) goodEpoch++;
     }
   }
   const dustCleared = st.dustCleared.length;
@@ -267,7 +268,7 @@ export function computeStats(st) {
   const points =
     placedBooks * 2 + dustCleared * 1 + cobwebsCleared * 2 + pagesFiled * 2 + requestsDone * 2 + sealsFound * 1 + choresDone * 1 + osDone * 1;
   const totalPoints =
-    BOOKS.length * 2 +
+    ksiazki.length * 2 +
     LAYOUT.dusty * 1 +
     LAYOUT.cobwebs.length * 2 +
     LAYOUT.pages.length * 2 +
@@ -279,20 +280,20 @@ export function computeStats(st) {
 
   const chronologyGenres = [];
   for (const shelf of LAYOUT.shelves) {
-    const booksOfGenre = BOOKS.filter((b) => b.genre === shelf.genre);
+    const booksOfGenre = ksiazki.filter((b) => b.genre === shelf.genre);
     const allPlaced = booksOfGenre.every((b) => st.books[b.id] && st.books[b.id].where === "shelf");
     if (!allPlaced) continue;
     const allGood = booksOfGenre.every((b) => {
       const rec = st.books[b.id];
       const slot = shelf.slots[rec.shelfSlot];
-      return slot && slot.epoch === b.epoch;
+      return slot && slot.epoch === epokaKsiazki(b);
     });
     if (allGood) chronologyGenres.push(shelf.genre);
   }
 
   return {
     placedBooks,
-    totalBooks: BOOKS.length,
+    totalBooks: ksiazki.length,
     goodEpoch,
     dustCleared,
     totalDusty: LAYOUT.dusty,
@@ -574,9 +575,9 @@ function buildShelves() {
 
     const slotsHtml = shelf.slots
       .map((slot, i) => {
-        const epoch = EPOCH_BY_ID[slot.epoch];
+        const epoch = epokaInfo(slot.epoch);
         return `<div class="shelf-slot" data-slot="${i}" style="left:${slot.fx * 100}%;top:${slot.fy * 100}%">
-          <div class="slot-badge" data-epoch="${slot.epoch}" style="background:${epoch.baseColor}"></div>
+          <div class="slot-badge" data-epoch="${slot.epoch}" style="background:${kolorPlakietki(slot.epoch)}">${epoch ? escapeHtml(epoch.mark) : ""}</div>
         </div>`;
       })
       .join("");
@@ -610,9 +611,9 @@ function buildShelves() {
     shelfSlotElsByGenre[shelf.genre].forEach((slotEl, i) => {
       const badge = slotEl.querySelector(".slot-badge");
       const showEpochTip = () => {
-        const epoch = EPOCH_BY_ID[shelf.slots[i].epoch];
+        const epoch = epokaInfo(shelf.slots[i].epoch);
         const r = getLogicalRect(badge);
-        showHoverHtml(`<strong>Epoka: ${escapeHtml(epoch.name)}</strong><br>Połóż tu książkę z tej epoki, a dostaniesz bonus ✦`, r.x + r.width / 2, r.y);
+        showHoverHtml(`<strong>${escapeHtml(epoch.mark)} Epoka: ${escapeHtml(epoch.name)}</strong> (${escapeHtml(epoch.range)})<br>Połóż tu książkę z tej epoki, a dostaniesz bonus ✦`, r.x + r.width / 2, r.y);
       };
       badge.addEventListener("pointermove", (e) => {
         if (e.buttons !== 0 || (e.pointerType !== "pen" && e.pointerType !== "mouse")) return;
@@ -868,7 +869,7 @@ function spineInnerHtml(book) {
 }
 
 function bookColor(book) {
-  return shadeColor(EPOCH_BY_ID[book.epoch].baseColor, brightnessVariant(book.id));
+  return kolorOprawy(book);
 }
 
 function isOpenVariant(bookId) {
@@ -893,7 +894,7 @@ function worldPosForBook(id) {
 }
 
 function buildBooksInWorld() {
-  for (const book of BOOKS) {
+  for (const book of ksiazkiPoziomu()) {
     const rec = state.books[book.id];
     const el = document.createElement("div");
     el.className = "book-item book-cover no-anim";
@@ -1159,12 +1160,12 @@ function nagrody() {
 function migrateNagrody() {
   if (state.nagrody && typeof state.nagrody === "object") return;
   const n = nagrody();
-  for (const book of BOOKS) {
+  for (const book of ksiazkiPoziomu()) {
     const rec = state.books[book.id];
     if (!rec || rec.where !== "shelf") continue;
     n.placed.push(book.id);
     const slot = LAYOUT.shelfByGenre[book.genre].slots[rec.shelfSlot];
-    if (slot && slot.epoch === book.epoch) n.epoch.push(book.id);
+    if (slot && slot.epoch === epokaKsiazki(book)) n.epoch.push(book.id);
   }
   for (const g of computeStats(state).chronologyGenres) if (state.completedShelves.includes(g)) n.chronology.push(g);
 }
@@ -1177,10 +1178,10 @@ function awardPlacement(rt, shelf, slotIndex, { quiet = false } = {}) {
     addInk(INK_PLACE);
     spawnFloatingLabel(shelf.x + shelf.w / 2, shelf.y - 6, `+${INK_PLACE}`);
   }
-  if (shelf.slots[slotIndex].epoch !== rt.book.epoch) return;
+  if (shelf.slots[slotIndex].epoch !== epokaKsiazki(rt.book)) return;
   if (!n.epoch.includes(rt.id)) {
     n.epoch.push(rt.id);
-    addInk(INK_EPOCH_BONUS);
+    addInk(bonusEpoki());
     playEpochBonus();
     spawnFloatingLabel(shelf.x + shelf.w / 2, shelf.y - 30, "✦ Dobra epoka!", "epoch-bonus");
   } else if (!quiet) {
@@ -1395,7 +1396,7 @@ export function elfPlaceOne() {
   for (const rt of [...fromBasket, ...fromWorld]) {
     const shelf = LAYOUT.shelfByGenre[rt.book.genre];
     const occ = shelfOccupancy[shelf.genre];
-    let slot = shelf.slots.findIndex((s, i) => !occ[i] && s.epoch === rt.book.epoch);
+    let slot = shelf.slots.findIndex((s, i) => !occ[i] && s.epoch === epokaKsiazki(rt.book));
     if (slot === -1) slot = occ.findIndex((x) => !x);
     if (slot === -1) continue;
     const c = shelfSlotCenter(shelf, slot);

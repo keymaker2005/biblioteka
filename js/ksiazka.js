@@ -17,10 +17,11 @@
 //                         żeby ponownie użyć logiki world.js bez jej ruszania)
 //   ctx.onClose()       — wywoływane, gdy rozkładówka się zamyka (opcjonalne)
 
-import { BOOKS, EPOCH_BY_ID, GENRE_BY_ID, GENRE_ICONS } from "./books.js";
+import { BOOKS, GENRE_BY_ID, GENRE_ICONS } from "./books.js";
+import { epokaKsiazki, epokaInfo, kolorOprawy, statusLektury } from "./poziomy.js";
 import { wiedzaFor } from "./wiedza.js";
 import { historiaFor } from "./historia.js";
-import { shadeColor, brightnessVariant, view } from "./util.js";
+import { view } from "./util.js";
 import { playPaper } from "./sound.js";
 
 const FLY_W = 260;
@@ -123,6 +124,7 @@ function ensureDom() {
             <p class="ksiazka-series hidden" id="ksiazka-series"></p>
             <p class="ksiazka-genre" id="ksiazka-genre"></p>
             <p class="ksiazka-epoch" id="ksiazka-epoch"></p>
+            <p class="ksiazka-status hidden" id="ksiazka-status"></p>
             <h3 class="ksiazka-heading">O czym jest</h3>
             <p class="ksiazka-text" id="ksiazka-oczym"></p>
             <div class="ksiazka-quote hidden" id="ksiazka-quote">
@@ -195,6 +197,7 @@ function ensureDom() {
     series: root.querySelector("#ksiazka-series"),
     genre: root.querySelector("#ksiazka-genre"),
     epoch: root.querySelector("#ksiazka-epoch"),
+    status: root.querySelector("#ksiazka-status"),
     oCzym: root.querySelector("#ksiazka-oczym"),
     quoteBlock: root.querySelector("#ksiazka-quote"),
     quoteText: root.querySelector("#ksiazka-quote-text"),
@@ -272,19 +275,22 @@ function setSection(sectionEl, text) {
 }
 
 function fillContent(book, wiedza, ctx) {
-  const epoch = EPOCH_BY_ID[book.epoch];
+  const epoch = epokaInfo(epokaKsiazki(book));
   const genre = GENRE_BY_ID[book.genre];
 
-  dom.miniCover.style.background = shadeColor(epoch.baseColor, brightnessVariant(book.id));
+  dom.miniCover.style.background = kolorOprawy(book);
   dom.miniGenreIcon.innerHTML = GENRE_ICONS[genre.icon];
   dom.flyIcon.innerHTML = GENRE_ICONS[genre.icon];
-  dom.fly.style.background = shadeColor(epoch.baseColor, brightnessVariant(book.id));
+  dom.fly.style.background = kolorOprawy(book);
 
   dom.title.textContent = book.title;
   dom.author.textContent = book.author;
   dom.year.textContent = `Rok: ok. ${book.year}`;
   dom.genre.textContent = `Gatunek: ${genre.name}`;
-  dom.epoch.textContent = `Epoka: ${epoch.name}`;
+  dom.epoch.textContent = `Epoka: ${epoch ? epoch.name : "—"}`;
+  const status = statusLektury(book.id);
+  dom.status.textContent = status ? `Lektura: ${status}` : "";
+  dom.status.classList.toggle("hidden", !status);
 
   if (book.series) {
     dom.series.textContent = `Tom ${book.series.vol} z ${book.series.of} — seria «${book.series.name}»`;
@@ -295,7 +301,8 @@ function fillContent(book, wiedza, ctx) {
 
   dom.oCzym.textContent = (wiedza && wiedza.oCzym) || "";
 
-  const cytat = wiedza && wiedza.cytat;
+  // Cytat jeszcze nieustalony (tekst w nawiasie kwadratowym) — nie pokazujemy bloku cytatu.
+  const cytat = wiedza && wiedza.cytat && !String(wiedza.cytat.tekst || "").trim().startsWith("[") ? wiedza.cytat : null;
   dom.quoteBlock.classList.toggle("hidden", !cytat);
   if (cytat) {
     dom.quoteText.textContent = cytat.tekst || "";

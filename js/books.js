@@ -234,6 +234,19 @@ export const BOOKS = [
     hint: "Absurdalna komedia o buncie syna przeciw rodzinnemu bałaganowi.",
   },
 
+  // od 1.0: tylko poziom podstawowy (zamiast „Odprawy posłów greckich”)
+  {
+    id: "balladyna",
+    title: "Balladyna",
+    author: "Juliusz Słowacki",
+    authorSort: "Słowacki",
+    year: 1839,
+    epoch: "romantyzm",
+    genre: "dramat",
+    series: null,
+    hint: "Mroczna baśniowa tragedia o dziewczynie, która dla władzy gotowa jest na wszystko.",
+  },
+
   // --- POWIEŚĆ (10) --------------------------------------------------------
   {
     id: "potop",
@@ -278,6 +291,30 @@ export const BOOKS = [
     genre: "powiesc",
     series: null,
     hint: "Losy młodego lekarza rozdartego między ideałem a rzeczywistością.",
+  },
+  // od 1.0: tylko poziom podstawowy (zamiast „Nad Niemnem”)
+  {
+    id: "quo-vadis",
+    title: "Quo vadis",
+    author: "Henryk Sienkiewicz",
+    authorSort: "Sienkiewicz",
+    year: 1896,
+    epoch: "pozytywizm",
+    genre: "powiesc",
+    series: null,
+    hint: "Miłość i wiara w Rzymie Nerona, w cieniu płonącego miasta.",
+  },
+  // od 1.0: tylko poziom podstawowy (zamiast „Ludzi bezdomnych”)
+  {
+    id: "syzyfowe-prace",
+    title: "Syzyfowe prace",
+    author: "Stefan Żeromski",
+    authorSort: "Żeromski",
+    year: 1898,
+    epoch: "mloda",
+    genre: "powiesc",
+    series: null,
+    hint: "Szkolne lata chłopca w rosyjskim gimnazjum i odkrywanie własnej tożsamości.",
   },
   {
     id: "chlopi-1",
@@ -380,6 +417,30 @@ export const BOOKS = [
     genre: "nowela",
     series: null,
     hint: "Opowiadanie byłego więźnia o jednym dniu na rampie w Auschwitz-Birkenau.",
+  },
+  // od 1.0: tylko poziom podstawowy (zamiast „Katarynki”)
+  {
+    id: "artysta",
+    title: "Artysta",
+    author: "Sławomir Mrożek",
+    authorSort: "Mrożek",
+    year: 1957,
+    epoch: "xx",
+    genre: "nowela",
+    series: null,
+    hint: "Krótka, dowcipna historia o kogucie z wielkimi ambicjami i marzeniem o cyrku.",
+  },
+  // od 1.0: tylko poziom podstawowy (zamiast „Sklepów cynamonowych”)
+  {
+    id: "profesor-andrews",
+    title: "Profesor Andrews w Warszawie",
+    author: "Olga Tokarczuk",
+    authorSort: "Tokarczuk",
+    year: 2001,
+    epoch: "xx",
+    genre: "nowela",
+    series: null,
+    hint: "Brytyjski gość w stolicy, który budzi się w zupełnie innym mieście, niż się spodziewał.",
   },
   {
     id: "sklepy-cynamonowe",

@@ -1,5 +1,6 @@
 // js/game.js
-// Etap 1b/2 — orchestrator: stan gry i zapis (localStorage, klucz biblioteka.v2),
+// Etap 1b/2 — orchestrator: stan gry i zapis (localStorage, klucz biblioteka.v2 — poziom podstawowy,
+// biblioteka.v2.zaawansowany — poziom zaawansowany, od 1.0),
 // ustawienia (localStorage, klucz biblioteka.ustawienia), skalowanie sceny,
 // pasek górny (mini-mapa) + pasek dolny (czary, koszyk, atrament, porządek),
 // ekran powitalny, "Jak grać", menu, ustawienia, modale (karta książki,
@@ -7,7 +8,19 @@
 // Cała reszta (sala, przeciąganie, kurz, pajęczyny, koszyk, kryjówki, regały)
 // mieszka w js/world.js — ten plik tylko go inicjuje i reaguje na jego zmiany.
 
-import { EPOCH_BY_ID, GENRE_BY_ID, GENRE_ICONS, BOOKS } from "./books.js";
+import { GENRE_BY_ID, GENRE_ICONS, BOOKS } from "./books.js";
+import {
+  POZIOMY,
+  POZIOM_DOMYSLNY,
+  ZAMIANY_PODSTAWOWY,
+  ustawPoziom,
+  aktualnyPoziom,
+  ksiazkiPoziomu,
+  zastosujEpokiRegalow,
+  epokaKsiazki,
+  epokaInfo,
+  kolorOprawy,
+} from "./poziomy.js";
 import { LAYOUT, WORLD_W } from "./layout.js";
 import { initWorld, computeStats, basketHasRoom, moveBookToBasket, getWorldApi, getCamera, relayoutWorld } from "./world.js";
 import { openBookInHand } from "./ksiazka.js";
@@ -16,7 +29,7 @@ import { startMusic, setDucked } from "./muzyka.js";
 import { initCzary, consumeSummonTarget, refreshSpellButtons } from "./czary.js";
 import { initZadania, onCameraChangeZadania, showTaskList } from "./zadania.js";
 import { unlockAudio, setSoundsEnabled, setMusicSettings } from "./sound.js";
-import { clamp, shadeColor, brightnessVariant, formatTime, positionFloatingTip, view, TOPBAR_H, BOTTOMBAR_H } from "./util.js";
+import { clamp, formatTime, positionFloatingTip, view, TOPBAR_H, BOTTOMBAR_H } from "./util.js";
 
 // Skala interfejsu: scena wypełnia cały ekran. ui = min(wysokość/1024, szerokość/1180), w granicach 0,5–1,6;
 // rozmiar logiczny sceny = rozmiar ekranu / ui. Na iPadzie (1366×1024) ui = 1 — układ jak dawniej.
@@ -24,7 +37,8 @@ const UI_REF_H = 1024;
 const UI_REF_W = 1180;
 const UI_MIN = 0.5;
 const UI_MAX = 1.6;
-const STORAGE_KEY = "biblioteka.v2";
+const STORAGE_KEY = "biblioteka.v2"; // poziom podstawowy (zapisy sprzed 1.0 też)
+const STORAGE_KEY_ZAAWANSOWANY = "biblioteka.v2.zaawansowany";
 const SETTINGS_KEY = "biblioteka.ustawienia";
 const RING_R = 30;
 const RING_CIRC = 2 * Math.PI * RING_R;
@@ -37,7 +51,8 @@ const SPELL_INFO = {
 
 const HOWTO_SLIDES = [
   { icon: "🏛️", text: "Sala jest w nieładzie — posprzątaj ją. Przesuwaj salę palcem (na komputerze myszką albo kółkiem), mapa u góry pokazuje, gdzie jesteś. Na telefonie przybliżysz salę dwoma palcami albo przyciskami + i −." },
-  { icon: "📚", text: "Zbieraj książki do koszyka i odnoś je na regały. Regały są według gatunków — ikona na okładce podpowiada gatunek." },
+  { icon: "📚", text: "Zbieraj książki do koszyka i odnoś je na regały. Regały są według gatunków — ikona na okładce podpowiada gatunek (na poziomie zaawansowanym zobaczysz ją dopiero po wzięciu książki do ręki albo czarem Wgląd)." },
+  { icon: "🎓", text: "Dwa poziomy. Podstawowy: lektury obowiązkowe ze szkoły podstawowej i liceum, ikona gatunku na okładce, kolor oprawy podpowiada epokę. Zaawansowany: liceum w zakresie rozszerzonym i lektury uzupełniające, jednakowe oprawy, 11 epok, czytelnicy proszą o książki po kontekście. Każdy poziom ma osobny zapis; poziom zmienisz w menu." },
   { icon: "🧹", text: "Kurz i pajęczyny: pocieraj palcem lub rysikiem (myszką — z wciśniętym przyciskiem)." },
   { icon: "🔍", text: "Szukaj kryjówek — szuflada, fotel i zasłona oznaczone lupą mogą coś skrywać. Stosy zdejmuj od góry." },
   { icon: "📄", text: "Luźne kartki wypadły z książek. Stuknij kartkę, przeczytaj fragment i przeciągnij ją na książkę, z której pochodzi — tak ją naprawisz. Kartki mieszczą się też w koszyku." },
@@ -60,9 +75,13 @@ function defaultHintsShown() {
   return { hideout: false, cobweb: false, page: false, dust: false, stack: false };
 }
 
+function storageKey() {
+  return aktualnyPoziom() === "zaawansowany" ? STORAGE_KEY_ZAAWANSOWANY : STORAGE_KEY;
+}
+
 function defaultBooksState() {
   const out = {};
-  for (const b of BOOKS) out[b.id] = { where: "world", basketSlot: null, shelfSlot: null };
+  for (const b of ksiazkiPoziomu()) out[b.id] = { where: "world", basketSlot: null, shelfSlot: null };
   return out;
 }
 
@@ -92,10 +111,13 @@ const RENAMED_BOOKS = {
   cesarz: "podroze-z-herodotem",
 };
 
-function migrateRenamedBooks(parsed) {
+// Od 1.0 poziom podstawowy ma pięć książek innych niż zapisy sprzed 1.0 (ZAMIANY_PODSTAWOWY w js/poziomy.js).
+// Zapis podstawowy przenosi się tą samą drogą co RENAMED_BOOKS: nowa książka przejmuje miejsce
+// (regał/koszyk/sala) i wypłacone nagrody starej. Zapis zaawansowany niczego nie zamienia.
+function migrateRenamedBooks(parsed, mapa = RENAMED_BOOKS) {
   const books = parsed.books && typeof parsed.books === "object" ? parsed.books : null;
   const n = parsed.nagrody && typeof parsed.nagrody === "object" ? parsed.nagrody : null;
-  for (const [oldId, newId] of Object.entries(RENAMED_BOOKS)) {
+  for (const [oldId, newId] of Object.entries(mapa)) {
     if (books && books[oldId] && !books[newId]) books[newId] = books[oldId];
     if (books) delete books[oldId];
     if (!n) continue;
@@ -108,7 +130,7 @@ function migrateRenamedBooks(parsed) {
 function sanitizeBooksState(raw) {
   const out = defaultBooksState();
   if (!raw || typeof raw !== "object") return out;
-  for (const b of BOOKS) {
+  for (const b of ksiazkiPoziomu()) {
     const rec = raw[b.id];
     if (!rec || typeof rec !== "object") continue;
     const where = ["world", "basket", "shelf"].includes(rec.where) ? rec.where : "world";
@@ -123,11 +145,12 @@ function sanitizeBooksState(raw) {
 
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
     if (!parsed || parsed.version !== 2) return defaultState();
     migrateRenamedBooks(parsed);
+    if (aktualnyPoziom() === "podstawowy") migrateRenamedBooks(parsed, ZAMIANY_PODSTAWOWY);
     const fallback = defaultState();
     return {
       version: 2,
@@ -160,7 +183,7 @@ function loadState() {
 
 function saveState() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(storageKey(), JSON.stringify(state));
   } catch (err) {
     console.warn("Nie udało się zapisać stanu gry.", err);
   }
@@ -174,7 +197,7 @@ let world = null;
 // ---------------------------------------------------------------------------
 
 function defaultSettings() {
-  return { musicOn: true, musicVolume: 70, musicBeat: true, soundsOn: true, textScale: 1, pora: "auto" };
+  return { musicOn: true, musicVolume: 70, musicBeat: true, soundsOn: true, textScale: 1, pora: "auto", poziom: POZIOM_DOMYSLNY };
 }
 
 function loadSettings() {
@@ -191,6 +214,7 @@ function loadSettings() {
       textScale: [1, 1.2, 1.4].includes(parsed.textScale) ? parsed.textScale : fb.textScale,
       musicBeat: typeof parsed.musicBeat === "boolean" ? parsed.musicBeat : fb.musicBeat,
       pora: ["auto", "dzien", "wieczor"].includes(parsed.pora) ? parsed.pora : fb.pora,
+      poziom: POZIOMY[parsed.poziom] ? parsed.poziom : fb.poziom,
     };
   } catch (err) {
     console.warn("Nie udało się wczytać ustawień — używam domyślnych.", err);
@@ -228,6 +252,7 @@ let bookCardYearEl, bookCardSeriesEl, bookCardGenreEl, bookCardEpochEl, bookCard
 let confirmModalEl, menuModalEl, endModalEl, endMistakesEl, endTimeEl, endEpochEl;
 let menuBtnEl, spellBtnEls, spellTipEl;
 let welcomeModalEl, welcomeContinueBtnEl, welcomeNewGameBtnEl, welcomeHowtoBtnEl, welcomeSettingsBtnEl;
+let levelBtnEls, levelDescEl, levelLabelEl;
 let howtoModalEl, howtoCardEl, howtoIconEl, howtoTextEl, howtoDotsEl, howtoBackBtnEl, howtoNextBtnEl;
 let settingsModalEl, settingMusicOnEl, settingMusicVolumeEl, settingSoundsOnEl, textScaleBtnEls;
 
@@ -275,6 +300,10 @@ function cacheDom() {
   welcomeNewGameBtnEl = document.getElementById("welcome-newgame-btn");
   welcomeHowtoBtnEl = document.getElementById("welcome-howto-btn");
   welcomeSettingsBtnEl = document.getElementById("welcome-settings-btn");
+
+  levelBtnEls = Array.from(document.querySelectorAll("#welcome-levels .level-btn"));
+  levelDescEl = document.getElementById("welcome-level-desc");
+  levelLabelEl = document.getElementById("level-label");
 
   howtoModalEl = document.getElementById("howto-modal");
   howtoCardEl = document.getElementById("howto-card");
@@ -506,10 +535,10 @@ function openBookDetails(bookId) {
 function openBookCard(bookId) {
   const book = BOOKS.find((b) => b.id === bookId);
   if (!book) return;
-  const epoch = EPOCH_BY_ID[book.epoch];
+  const epoch = epokaInfo(epokaKsiazki(book));
   const genre = GENRE_BY_ID[book.genre];
 
-  bookCardCoverEl.style.background = shadeColor(epoch.baseColor, brightnessVariant(book.id));
+  bookCardCoverEl.style.background = kolorOprawy(book);
   bookCardGenreIconEl.innerHTML = GENRE_ICONS[genre.icon];
   bookCardTitleEl.textContent = book.title;
   bookCardAuthorEl.textContent = book.author;
@@ -579,7 +608,7 @@ function currentPlayMs() {
 
 function restartGame() {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKey()); // kasuje tylko zapis bieżącego poziomu
   } catch (err) {
     console.warn("Nie udało się wyczyścić zapisu.", err);
   }
@@ -600,13 +629,38 @@ function computeHasProgress(st) {
   return stats.percent > 0 || st.mistakes > 0 || st.playMs > 1000;
 }
 
+/** Ustawia poziom: id w module poziomów, epoki plakietek na regałach, klasa sceny i napis w pasku. */
+function applyLevel(id) {
+  const poziom = ustawPoziom(id);
+  zastosujEpokiRegalow(LAYOUT, poziom);
+  sceneEl.classList.toggle("poziom-zaawansowany", poziom === "zaawansowany");
+  levelLabelEl.textContent = `· poziom ${POZIOMY[poziom].nazwa.toLowerCase()}`;
+  const menuLevelBtn = document.getElementById("menu-level-btn");
+  if (menuLevelBtn) menuLevelBtn.textContent = `Zmień poziom (teraz: ${POZIOMY[poziom].nazwa.toLowerCase()})`;
+  return poziom;
+}
+
+/** Wybór poziomu na ekranie powitalnym: zaznaczenie, opis i dostępność „Kontynuuj” dla tego poziomu. */
+function selectLevel(id) {
+  const poziom = applyLevel(id);
+  settings.poziom = poziom;
+  saveSettings();
+  levelBtnEls.forEach((b) => {
+    const on = b.dataset.poziom === poziom;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-checked", String(on));
+  });
+  levelDescEl.textContent = POZIOMY[poziom].opis;
+  welcomeContinueBtnEl.classList.toggle("hidden", !computeHasProgress(loadState()));
+}
+
 function showWelcomeScreen() {
-  const saved = loadState();
-  welcomeContinueBtnEl.classList.toggle("hidden", !computeHasProgress(saved));
+  selectLevel(settings.poziom);
   showModal(welcomeModalEl);
 }
 
 function wireWelcomeUI() {
+  levelBtnEls.forEach((b) => b.addEventListener("click", () => selectLevel(b.dataset.poziom)));
   welcomeContinueBtnEl.addEventListener("click", () => {
     state = loadState();
     hideModal(welcomeModalEl);
@@ -614,7 +668,7 @@ function wireWelcomeUI() {
   });
   welcomeNewGameBtnEl.addEventListener("click", () => {
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(storageKey()); // tylko zapis wybranego poziomu
     } catch (err) {
       console.warn("Nie udało się wyczyścić zapisu.", err);
     }
@@ -720,6 +774,10 @@ function wireMenuUI() {
   document.getElementById("menu-settings-btn").addEventListener("click", () => {
     hideModal(menuModalEl);
     showModal(settingsModalEl);
+  });
+  document.getElementById("menu-level-btn").addEventListener("click", () => {
+    hideModal(menuModalEl);
+    goToTitleScreen(); // zapis bieżącego poziomu zostaje; poziom wybierzesz na ekranie powitalnym
   });
   document.getElementById("menu-restart-btn").addEventListener("click", () => {
     hideModal(menuModalEl);
@@ -884,6 +942,9 @@ function boot() {
   updateScale();
 
   settings = loadSettings();
+  // Test: ?poziom=zaawansowany wymusza poziom (bez zmiany ustawień).
+  const poziomParam = new URLSearchParams(location.search).get("poziom");
+  applyLevel(POZIOMY[poziomParam] ? poziomParam : settings.poziom);
   applySettings();
   refreshSettingsUI();
 

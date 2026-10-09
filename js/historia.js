@@ -204,6 +204,44 @@ export const HISTORIA = {
     dzial: "LVI",
     interpretacja: true,
   },
+  // --- od 1.0: pięć książek poziomu podstawowego (fakty sprawdzone 9.10.2026) ---
+  "balladyna": {
+    data: "1839",
+    wydarzenie: "Wielka Emigracja po powstaniu listopadowym",
+    zdanie: "Słowacki napisał Balladynę w 1834 roku w Genewie, na emigracji po klęsce powstania listopadowego (1830–1831). Drukiem ukazała się w Paryżu w 1839 roku.",
+    poziom: "P",
+    dzial: "XXXI",
+  },
+  "quo-vadis": {
+    data: "1896",
+    wydarzenie: "Polska pod zaborami i Nobel dla Sienkiewicza",
+    zdanie: "Powieść drukowano w warszawskiej „Gazecie Polskiej” w latach 1895–1896, w zaborze rosyjskim, a książkowo wydano w Krakowie w 1896 roku. Sienkiewicz dostał w 1905 roku Nagrodę Nobla za całokształt twórczości epickiej. Czytelnicy pod zaborami mogli widzieć w losie prześladowanych chrześcijan obraz własnej sytuacji.",
+    poziom: "P",
+    dzial: "XXXV",
+    interpretacja: true,
+  },
+  "syzyfowe-prace": {
+    data: "po 1864",
+    wydarzenie: "Rusyfikacja szkół w Królestwie Polskim",
+    zdanie: "Po powstaniu styczniowym (1863–1864) władze rosyjskie rusyfikowały szkoły Królestwa Polskiego. Żeromski chodził do gimnazjum w Kielcach (1874–1886), a w powieści ukrył je pod nazwą Klerykowa.",
+    poziom: "P",
+    dzial: "XXXV",
+  },
+  "artysta": {
+    data: "1956",
+    wydarzenie: "PRL po odwilży",
+    zdanie: "Mrożek zdobył popularność w PRL w latach pięćdziesiątych satyrycznymi opowiadaniami i rysunkami; po odwilży 1956 roku satyra mogła mówić śmielej. Opowiadanie o kogucie, który chce występować w cyrku, nie opisuje wydarzeń historycznych — to przypowieść o ambicji większej niż możliwości.",
+    poziom: "P",
+    dzial: "LVI",
+    interpretacja: true,
+  },
+  "profesor-andrews": {
+    data: "13 grudnia 1981",
+    wydarzenie: "Stan wojenny",
+    zdanie: "Brytyjski profesor przyjeżdża do Warszawy 12 grudnia 1981 roku, w przeddzień wprowadzenia stanu wojennego (13 grudnia), i następnego dnia trafia do miasta z czołgami na ulicach, godziną policyjną i pustymi sklepami.",
+    poziom: "P",
+    dzial: "LVIII",
+  },
 };
 
 // Tomy serii dzielą tło z pierwszym tomem.

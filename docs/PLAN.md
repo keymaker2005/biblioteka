@@ -23,10 +23,12 @@ Wzór: *Librarian: Tidy Up the Arcane Library!* (Steam, ArtRising, 2026). Nie ro
 | 14 | **Więcej zadań w sali (wersja 0.6):** prośby czytelników, naprawa książek, pieczęcie Załuskich (ukryte przedmioty), porządki w otoczeniu — wybór właściciela, wszystkie cztery (28.09) |
 | 15 | **Książki z regału można zdejmować i przestawiać** (do koszyka, na inne miejsce regału — zamiana miejsc, na rewersy). Każda nagroda atramentu wypłaca się tylko raz, żeby odkładanie w kółko nie „drukowało” atramentu (wersja 0.7, prośba właściciela, 29.09) |
 | 16 | **Cienie i światło jako nakładka na ilustrację — odrzucone.** „Ray tracing” w wariancie 2D (cienie od ognia na podłodze) zrobiony w 0.7 i usunięty w 0.7.1 po teście na iPadzie: *„Cienie są warstwami nakładanymi na obraz, nie wygląda to dobrze.”* Wraca tylko z namalowanymi wariantami ilustracji (np. kominek zapalony/zgaszony), nie jako rysunek kodem (29.09) |
-| 17 | **Dwa poziomy trudności według podstawy programowej:** podstawowy (szkoła podstawowa kl. VII–VIII + liceum, zakres podstawowy) i zaawansowany (liceum, zakres rozszerzony + lektury uzupełniające). Poziom podstawowy to dzisiejsza gra; decyzja 8 obowiązuje na obu poziomach. Kształt — sekcja „Dwa poziomy trudności” (8.10) |
+| 17 | **Dwa poziomy trudności według podstawy programowej:** podstawowy (szkoła podstawowa kl. VII–VIII + liceum, zakres podstawowy) i zaawansowany (liceum, zakres rozszerzony + lektury uzupełniające). Poziom podstawowy to dzisiejsza gra; decyzja 8 obowiązuje na obu poziomach. Kształt — sekcja „Dwa poziomy trudności” (8.10). **Zbudowane w wersji 1.0 (9.10)**, dane w `js/poziomy.js` |
 | 18 | **Książki spoza podstawy programowej wymienione** w tym samym gatunku: *Kamizelka* → *Proszę państwa do gazu* (Borowski), *Cesarz* → *Podróże z Herodotem* (Kapuściński). Nowa książka przejmuje w zapisie miejsce i nagrody starej. Wybór Borowskiego zamiast „Artysty” Mrożka: liceum, zakres podstawowy, i tekst w domenie publicznej, więc cytat sprawdzony w oryginale (wersja 0.8, 8.10) |
 | 19 | **Gra na każdym ekranie:** telefon (poziomo), iPad i komputer; palec, rysik i myszka. Scena wypełnia cały ekran bez pustych pasów (na szerokim ekranie widać więcej sali), na niskim ekranie telefonu sala dopasowuje się do wysokości i można ją przybliżyć (dwa palce, przyciski + i −, Ctrl+kółko) i przesuwać także w pionie. Na iPadzie 13" układ bez zmian. Pion — prośba o obrócenie urządzenia (wersja 0.9, prośba właściciela, 9.10) |
 | 20 | **Kolejność prac (9.10, właściciel: „działaj po kolei, jak uważasz”):** 0.9 gra na każdym ekranie → 0.10 tło historyczne → 1.0 dwa poziomy → nowe sale. „Tło historyczne” i „Oś dziejów” zatwierdzone tym samym poleceniem |
+| 21 | **Dwa tryby gry (9.10, pomysł właściciela):** **tryb swobodny** = Sala Załuskich, wszystkie lektury w jednej bibliotece (dzisiejsza gra); **tryb historyczny** = podróż przez epoki — każda epoka ma własne miejsce związane z polską literaturą (skryptorium na Świętym Krzyżu, Czarnolas i drukarnia, obiady czwartkowe, Wilno i Paryż, redakcja gazety, Kraków Młodej Polski, Ziemiańska, konspiracja, drugi obieg), regały na gatunki tamtej epoki, 10–14 książek na salę, 2–3 zadania z epoki, plakietki lat wydania zamiast epok, sale mniejsze (1–2 części panoramy). „Oś dziejów” staje się mapą podróży. Sale budujemy **po kolei, od średniowiecza**, jedna na wersję, **po wersji 1.0 (dwa poziomy)**. Poziom trudności działa w obu trybach. Zastępuje plan „Kolejne sale” |
+| 22 | **Wersja 1.0 — rozstrzygnięcia (9.10, właściciel: „jak uważasz”):** zamienniki na poziomie podstawowym jak w propozycji (Balladyna, Quo vadis, Syzyfowe prace, Artysta, Profesor Andrews) — status sprawdzony w Dz.U. 2024 poz. 996 i w liście liceum 2024; poziom zaawansowany = zbiór książek z wersji 0.10 (bez dodatkowych tytułów — nowe wejdą w trybie historycznym); „Oś dziejów” ma 8 medalionów na obu poziomach (tablica w galerii nie pomieści 14), na zaawansowanym trudniejsze wydarzenia; zmiana poziomu = powrót na ekran powitalny; dotychczasowy zapis przechodzi na poziom podstawowy |
 
 ## Urządzenie docelowe
 
@@ -204,7 +206,7 @@ P = wydarzenie z zakresu podstawowego historii, R = tylko rozszerzony. Na poziom
 
 **3. Opowieść sali: wędrówka zbiorów Załuskich** — karta po skompletowaniu pieczęci rozwija się w oś: otwarcie biblioteki (1747) → własność Rzeczypospolitej pod opieką KEN → wywiezienie do Petersburga po III rozbiorze (1795) → zwrot części zbiorów po traktacie ryskim (1921) → spalenie przez Niemców po powstaniu warszawskim (1944). Każda data to dział podstawy historii (XXVIII, XXVII, XLI, L). Daty sprawdzone 9.10 (pl.wikipedia.org: otwarcie 8.08.1747, przejęcie przez KEN po śmierci J.A. Załuskiego 1774, wywóz XII 1794 – I 1795, częściowy zwrot po traktacie ryskim, spalenie 1944). Treści w `js/historia.js`.
 
-## Kolejne sale (propozycja do etapu 2)
+## Kolejne sale (propozycja do etapu 2) — ⚠ ZASTĄPIONA decyzją 21 (tryb historyczny), zostaje jako materiał
 
 Każda sala to prawdziwa polska biblioteka z jednej epoki. Regały dalej według gatunków (decyzja 8); w miejsce plakietek epok wchodzą **plakietki wydarzeń** tej epoki — ten sam mechanizm bonusu, który już działa, tylko z historią zamiast epok.
 
@@ -223,7 +225,8 @@ Tylko polscy autorzy (decyzja 2). Dokładna lista tytułów na każdy regał pow
 Rozstrzygnięte 8.10: dwa poziomy — tak (decyzja 17); Kamizelka i Cesarz — wymienione (decyzja 18, wersja 0.8). Rozstrzygnięte 9.10: kolejność prac (decyzja 20).
 
 Otwarte:
-1. **Zamienniki na poziomie podstawowym** (5 książek spoza zakresu, sekcja „Dwa poziomy trudności”) — przyjąć zaproponowane tytuły czy inne?
+1. **Cytat z „Profesora Andrewsa w Warszawie”** — potrzebne zdanie z książki (tom „Gra na wielu bębenkach”, 2001); do tego czasu ramka cytatu na karcie jest ukryta.
+2. **Rok „Artysty” Mrożka** — na karcie „ok. 1957” (zbiór „Słoń” według klp.pl), źródła podają różne zbiory; do potwierdzenia w bibliografii Mrożka.
 
 ## Etapy
 
@@ -238,10 +241,10 @@ Otwarte:
 | 0.5 | Czary, fizyka żyrandola i zasłony, poprawki po testach | ✅ 28.09 |
 | 0.6: więcej zadań | Prośby czytelników, naprawa książek (kartki = fragmenty), pieczęcie Załuskich, porządki, lista „Zadania” | ✅ 28.09, testowane na iPadzie 29.09 |
 | 0.6.2–0.7.1: po testach | Koszyk bez „duchów”, kominek na iPadzie, rewers i naprawa książki na regale, zdejmowanie i przestawianie książek z regału (nagrody raz), liście w odbiciu, długie tytuły na okładkach; cienie od ognia zrobione i zdjęte (decyzja 16) | ✅ 29.09, online |
-| 0.8: zgodność z podstawą | Kamizelka → Proszę państwa do gazu, Cesarz → Podróże z Herodotem (zapis przenosi się sam), poprawione zdania o statusie lektur na kartach, regał nowel z dwiema plakietkami XX wieku | ✅ 8.10, lokalnie (pod link po „wyślij”) |
-| 0.9: gra na każdym ekranie (decyzja 19) | Scena bez pustych pasów, przybliżanie i przesuwanie w pionie na telefonie, myszka, kółko i klawiatura na komputerze | ✅ 9.10, lokalnie |
-| 0.10: tło historyczne (decyzja 20) | Sekcja „Tło historyczne” na karcie (js/historia.js), zadanie „Oś dziejów” (8 medalionów), wędrówka zbiorów Załuskich na karcie pieczęci; tablica w galerii nad obrazem | ✅ 9.10, lokalnie |
-| 1.0: dwa poziomy (decyzja 17) | Wybór poziomu na ekranie powitalnym, osobne zapisy, pula książek, prośby i kartki według poziomu, plakietki zależne od poziomu, dopisek o statusie lektury na karcie (np. „Liceum, zakres podstawowy, fragmenty”) | – |
+| 0.8: zgodność z podstawą | Kamizelka → Proszę państwa do gazu, Cesarz → Podróże z Herodotem (zapis przenosi się sam), poprawione zdania o statusie lektur na kartach, regał nowel z dwiema plakietkami XX wieku | ✅ 8.10, online |
+| 0.9: gra na każdym ekranie (decyzja 19) | Scena bez pustych pasów, przybliżanie i przesuwanie w pionie na telefonie, myszka, kółko i klawiatura na komputerze | ✅ 9.10, online |
+| 0.10: tło historyczne (decyzja 20) | Sekcja „Tło historyczne” na karcie (js/historia.js), zadanie „Oś dziejów” (8 medalionów), wędrówka zbiorów Załuskich na karcie pieczęci; tablica w galerii nad obrazem | ✅ 9.10, online |
+| 1.0: dwa poziomy (decyzja 17) | Wybór poziomu na ekranie powitalnym, osobne zapisy, pula książek, prośby i kartki według poziomu, plakietki zależne od poziomu, dopisek o statusie lektury na karcie (np. „Liceum, zakres podstawowy, fragmenty”) | ✅ 9.10, lokalnie |
 | 2. Rdzeń gry | Kolejne sale według epok i prawdziwych bibliotek (sekcja „Kolejne sale”), plakietki wydarzeń zamiast epok | – |
 | 3. Czary | Atrament, Wgląd, Przywołanie, Skrzat, odnowienia | ✅ 28.09 (wersja 0.5) |
 | 4. Oprawa | Grafika, muzyka i animacje zrobione w falach 1b–3; zostaje dopracowanie (skrzat, więcej animacji) | częściowo |

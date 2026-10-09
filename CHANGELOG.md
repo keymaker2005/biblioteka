@@ -6,6 +6,20 @@ Szczegóły decyzji: [docs/PLAN.md](docs/PLAN.md).
 
 ---
 
+## 1.0 — Dwa poziomy trudności (9.10.2026)
+
+**Nowe**
+- **Wybór poziomu na ekranie powitalnym** (i zmiana w menu). Każdy poziom ma osobny zapis — przełączanie niczego nie kasuje, a „Nowa gra” zaczyna od nowa tylko bieżący poziom. Poziom widać w górnym pasku.
+- **Poziom podstawowy** — lektury obowiązkowe ze szkoły podstawowej (klasy VII–VIII) i liceum w zakresie podstawowym. Pięć książek spoza tego zakresu zastąpiły obowiązkowe z tego samego gatunku: „Odprawa posłów greckich” → **„Balladyna”**, „Nad Niemnem” → **„Quo vadis”**, „Ludzie bezdomni” → **„Syzyfowe prace”**, „Katarynka” → **„Artysta”** Mrożka, „Sklepy cynamonowe” → **„Profesor Andrews w Warszawie”** Tokarczuk. Wszystkie mają pełne karty „książka w ręku” i tło historyczne. Luźna kartka podpowiada autora.
+- **Poziom zaawansowany** — liceum w zakresie rozszerzonym i lektury uzupełniające (książki jak do wersji 0.10). Trudniej: wszystkie oprawy jednakowe (kolor nie podpowiada epoki), ikonę gatunku widać dopiero na karcie książki albo przy czarze Wgląd, 11 epok na plakietkach (od średniowiecza do współczesności), dobra epoka daje +2 atramentu, czytelnicy proszą po kontekście („coś napisanego na emigracji po upadku powstania listopadowego”), kartki bez podpowiedzi autora, na „Osi dziejów” trudniejsze wydarzenia (unia lubelska, sarmatyzm, Wielka Emigracja, rabacja galicyjska, uwłaszczenie, Zagłada).
+- **Status lektury na karcie książki**, np. „Lektura: Liceum, zakres podstawowy (fragmenty)”.
+
+**Zapis gry**
+- Dotychczasowy postęp przechodzi na poziom podstawowy: nowe książki zajmują miejsca zastąpionych (na regale, w koszyku, w sali) i przejmują ich nagrody.
+
+**Do uzupełnienia**
+- „Profesor Andrews w Warszawie” nie ma jeszcze cytatu (nie ma wiarygodnego źródła z dosłownym tekstem) — ramka cytatu na karcie jest ukryta.
+
 ## 0.10 — Tło historyczne i Oś dziejów (9.10.2026)
 
 **Nowe**

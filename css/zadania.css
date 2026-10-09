@@ -334,3 +334,10 @@
   color: #3a2208;
   box-shadow: 0 0 14px 4px rgba(255, 205, 80, 0.75), inset 0 0 5px rgba(120, 70, 0, 0.5);
 }
+
+/* Wersja 1.0 — podpowiedź na kartce (poziom podstawowy): autor książki, z której wypadła */
+.zk-autor {
+  margin: 6px 0 0;
+  font-size: calc(18px * var(--text-scale, 1));
+  font-weight: 600;
+}

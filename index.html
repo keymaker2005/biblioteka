@@ -36,6 +36,7 @@
           <div class="topbar-left">
             <button id="menu-btn" class="icon-btn" aria-label="Menu" title="Menu">☰</button>
             <h1 id="room-title">Sala Załuskich</h1>
+            <span id="level-label"></span>
             <button id="tasks-btn" class="zadania-btn" aria-label="Lista zadań">📋 Zadania</button>
           </div>
           <div id="minimap" aria-label="Mini-mapa sali">
@@ -166,6 +167,7 @@
             <button id="menu-resume-btn" class="btn btn-block">Wróć do gry</button>
             <button id="menu-howto-btn" class="btn btn-block">Jak grać</button>
             <button id="menu-settings-btn" class="btn btn-block">Ustawienia</button>
+            <button id="menu-level-btn" class="btn btn-block">Zmień poziom</button>
             <button id="menu-restart-btn" class="btn btn-danger btn-block">Zacznij od nowa</button>
             <button id="menu-title-btn" class="btn btn-ghost btn-block">Ekran tytułowy</button>
           </div>
@@ -229,7 +231,7 @@
           </div>
         </div>
 
-        <!-- "Jak grać" — 6 kart -->
+        <!-- "Jak grać" — karty -->
         <div id="howto-modal" class="modal hidden" role="dialog" aria-modal="true">
           <div class="modal-backdrop" data-close="howto"></div>
           <div class="modal-card howto-card" id="howto-card">
@@ -255,6 +257,11 @@
             <div class="welcome-flower welcome-flower-br" aria-hidden="true"></div>
             <h1 class="welcome-title">Biblioteka</h1>
             <p class="welcome-subtitle">Sala Załuskich</p>
+            <div class="welcome-levels" id="welcome-levels" role="radiogroup" aria-label="Poziom trudności">
+              <button type="button" class="level-btn" role="radio" data-poziom="podstawowy">Podstawowy</button>
+              <button type="button" class="level-btn" role="radio" data-poziom="zaawansowany">Zaawansowany</button>
+            </div>
+            <p class="welcome-level-desc" id="welcome-level-desc"></p>
             <div class="welcome-actions">
               <button id="welcome-continue-btn" class="btn btn-primary btn-block hidden">Kontynuuj</button>
               <button id="welcome-newgame-btn" class="btn btn-block">Nowa gra</button>

@@ -1,5 +1,5 @@
 // tools/check-layout.mjs
-// Sprawdza spójność js/layout.js względem js/books.js (bez sieci, bez DOM).
+// Sprawdza spójność js/layout.js względem js/books.js i js/poziomy.js — OBU poziomów trudności (bez sieci, bez DOM).
 // Uruchomienie: node tools/check-layout.mjs
 
 import path from "node:path";
@@ -24,7 +24,8 @@ function inWorldBounds(x, y, w = 0, h = 0, world) {
 
 async function main() {
   const { LAYOUT, WORLD_W, WORLD_H } = await import(pathToFileURL(path.join(ROOT, "js/layout.js")));
-  const { BOOKS, GENRES, EPOCHS } = await import(pathToFileURL(path.join(ROOT, "js/books.js")));
+  const { BOOKS, GENRES } = await import(pathToFileURL(path.join(ROOT, "js/books.js")));
+  const P = await import(pathToFileURL(path.join(ROOT, "js/poziomy.js")));
 
   console.log("== Świat ==");
   check("world.width === 4 × 1240 = 4960", LAYOUT.world.width === 4960 && WORLD_W === 4960);
@@ -56,17 +57,16 @@ async function main() {
   }
 
   console.log("== Regały (5 gatunków, razem 30 slotów) ==");
+  const genreIdsAll = GENRES.map((g) => g.id);
   check("shelves.length === 5", LAYOUT.shelves.length === 5);
   const genreIds = GENRES.map((g) => g.id).sort();
   const shelfGenreIds = LAYOUT.shelves.map((s) => s.genre).sort();
   check("każdy gatunek ma dokładnie jeden regał", JSON.stringify(genreIds) === JSON.stringify(shelfGenreIds));
   let totalSlots = 0;
-  const epochIds = new Set(EPOCHS.map((e) => e.id));
   for (const shelf of LAYOUT.shelves) {
     totalSlots += shelf.slots.length;
     check(`regał ${shelf.genre} w granicach świata`, inWorldBounds(shelf.x, shelf.y, shelf.w, shelf.h, LAYOUT.world));
     for (const slot of shelf.slots) {
-      check(`regał ${shelf.genre}: slot ma znaną epokę (${slot.epoch})`, epochIds.has(slot.epoch));
       check(
         `regał ${shelf.genre}: slot fx/fy w [0,1]`,
         slot.fx >= 0 && slot.fx <= 1 && slot.fy >= 0 && slot.fy <= 1
@@ -74,12 +74,6 @@ async function main() {
     }
   }
   check(`suma slotów na regałach === 30 (jest ${totalSlots})`, totalSlots === 30);
-
-  console.log("== Pojemność regału === liczba książek tego gatunku ==");
-  for (const shelf of LAYOUT.shelves) {
-    const n = BOOKS.filter((b) => b.genre === shelf.genre).length;
-    check(`regał ${shelf.genre}: ${shelf.slots.length} miejsc, ${n} książek`, shelf.slots.length === n);
-  }
 
   console.log("== Kryjówki (3, łącznie 4 miejsca) ==");
   check("hideouts.length === 3", LAYOUT.hideouts.length === 3);
@@ -110,9 +104,17 @@ async function main() {
   }
 
   console.log("== Oś dziejów (0.10) ==");
-  const { OS_DZIEJOW } = await import(pathToFileURL(path.join(ROOT, "js/historia.js")));
   const os = LAYOUT.zadania.os;
-  check(`osTotal === OS_DZIEJOW.length (${OS_DZIEJOW.length})`, LAYOUT.zadania.osTotal === OS_DZIEJOW.length);
+  for (const poz of Object.keys(P.POZIOMY)) {
+    const medaliony = P.osDziejowPoziomu(poz);
+    check(`[${poz}] osTotal === liczba medalionów (${medaliony.length})`, LAYOUT.zadania.osTotal === medaliony.length);
+    check(`[${poz}] id medalionów są unikalne`, new Set(medaliony.map((m) => m.id)).size === medaliony.length);
+    const idKsiazek = new Set(P.ksiazkiPoziomu(poz).map((b) => b.id));
+    for (const m of medaliony) {
+      check(`[${poz}] medalion ${m.id}: ma co najmniej jedną książkę z poziomu`, m.ksiazki.some((id) => idKsiazek.has(id)));
+      for (const id of m.ksiazki) if (!idKsiazek.has(id)) console.log(`  ..  [${poz}] medalion ${m.id}: książka ${id} nie należy do poziomu (pomijana, nie błąd)`);
+    }
+  }
   check("tablica osi w granicach świata", inWorldBounds(os.x, os.y, os.w, os.h, LAYOUT.world));
   const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
   for (const sh of LAYOUT.shelves) check(`tablica osi nie nachodzi na regał ${sh.genre}`, !hit(os, sh));
@@ -130,14 +132,56 @@ async function main() {
   const totalBayWidth = LAYOUT.bays.reduce((n, b) => n + b.width, 0);
   check(`suma szerokości wnęk === world.width (jest ${totalBayWidth})`, totalBayWidth === LAYOUT.world.width);
 
-  console.log("== Książki (30) ==");
-  check("BOOKS.length === 30", BOOKS.length === 30);
+  console.log("== Książki ==");
   const bookIds = new Set(BOOKS.map((b) => b.id));
   check("BOOKS.id są unikalne", bookIds.size === BOOKS.length);
-  for (const b of BOOKS) {
-    check(`książka ${b.id}: znany gatunek (${b.genre})`, genreIds.includes(b.genre));
-    check(`książka ${b.id}: znana epoka (${b.epoch})`, epochIds.has(b.epoch));
+  for (const b of BOOKS) check(`książka ${b.id}: znany gatunek (${b.genre})`, genreIdsAll.includes(b.genre));
+  for (const [stare, nowe] of Object.entries(P.ZAMIANY_PODSTAWOWY)) {
+    check(`zamiana ${stare} → ${nowe}: obie książki są w BOOKS`, bookIds.has(stare) && bookIds.has(nowe));
+    if (bookIds.has(stare) && bookIds.has(nowe)) {
+      const a = BOOKS.find((b) => b.id === stare);
+      const b = BOOKS.find((b2) => b2.id === nowe);
+      check(`zamiana ${stare} → ${nowe}: ten sam gatunek (${a.genre})`, a.genre === b.genre);
+    }
   }
+
+  // Każdy poziom: 30 książek, pojemność regałów = liczba książek gatunku, epoki istnieją,
+  // a liczba książek danej epoki w gatunku = liczba plakietek tej epoki na regale
+  // (inaczej „Ład chronologiczny” byłby nieosiągalny).
+  for (const poz of Object.keys(P.POZIOMY)) {
+    console.log(`== Poziom ${poz} ==`);
+    P.ustawPoziom(poz);
+    P.zastosujEpokiRegalow(LAYOUT, poz);
+    const ksiazki = P.ksiazkiPoziomu(poz);
+    const epochIds = new Set(P.epokiPoziomu(poz).map((e) => e.id));
+    check(`[${poz}] liczba książek === 30 (jest ${ksiazki.length})`, ksiazki.length === 30);
+    check(`[${poz}] suma slotów === liczba książek`, totalSlots === ksiazki.length);
+    check(`[${poz}] bonus epoki zdefiniowany`, Number.isInteger(P.bonusEpoki(poz)) && P.bonusEpoki(poz) > 0);
+    check(`[${poz}] liczba próśb === requestsTotal`, P.prosbyPoziomu(poz).length === LAYOUT.zadania.requestsTotal);
+    for (const stare of Object.keys(P.ZAMIANY_PODSTAWOWY)) {
+      const nowe = P.ZAMIANY_PODSTAWOWY[stare];
+      const obca = poz === "podstawowy" ? stare : nowe;
+      check(`[${poz}] brak książki z drugiego poziomu (${obca})`, !ksiazki.some((b) => b.id === obca));
+    }
+    for (const b of ksiazki) {
+      const epoka = P.epokaKsiazki(b, poz);
+      check(`[${poz}] książka ${b.id}: epoka ${epoka} jest na liście epok poziomu`, epochIds.has(epoka));
+      check(`[${poz}] książka ${b.id}: ma status lektury`, P.statusLektury(b.id) !== "");
+    }
+    for (const shelf of LAYOUT.shelves) {
+      const epokiSlotow = P.epokiSlotow(shelf.genre, poz);
+      check(`[${poz}] regał ${shelf.genre}: epoki z poziomy.js (${epokiSlotow.length}) = liczba slotów (${shelf.slots.length})`, epokiSlotow.length === shelf.slots.length);
+      const dane = ksiazki.filter((b) => b.genre === shelf.genre);
+      check(`[${poz}] regał ${shelf.genre}: ${shelf.slots.length} miejsc, ${dane.length} książek`, shelf.slots.length === dane.length);
+      for (const slot of shelf.slots) check(`[${poz}] regał ${shelf.genre}: slot ma znaną epokę (${slot.epoch})`, epochIds.has(slot.epoch));
+      for (const e of epochIds) {
+        const ksiazekEpoki = dane.filter((b) => P.epokaKsiazki(b, poz) === e).length;
+        const plakietek = shelf.slots.filter((sl) => sl.epoch === e).length;
+        check(`[${poz}] regał ${shelf.genre}, epoka ${e}: ${ksiazekEpoki} książek, ${plakietek} plakietek`, ksiazekEpoki === plakietek);
+      }
+    }
+  }
+  P.ustawPoziom(P.POZIOM_DOMYSLNY);
 
   console.log("");
   if (failures > 0) {

@@ -1703,3 +1703,80 @@ body {
 .shelf.has-image .plaque-name {
   font-size: 13px;
 }
+
+/* ---------- Wersja 1.0 — dwa poziomy trudności ---------- */
+
+/* Znak epoki na plakietce pod miejscem na regale */
+.slot-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--gold-light);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
+  user-select: none;
+}
+
+/* Poziom zaawansowany: ikona gatunku nie jest widoczna na okładkach i grzbietach
+   (widać ją na karcie „książka w ręku” i podczas czaru Wgląd). */
+#scene.poziom-zaawansowany .cover-genre-icon,
+#scene.poziom-zaawansowany .spine-genre-icon {
+  display: none;
+}
+#scene.poziom-zaawansowany.wglad .cover-genre-icon,
+#scene.poziom-zaawansowany.wglad .spine-genre-icon {
+  display: block;
+}
+
+/* Napis poziomu w górnym pasku */
+#level-label {
+  font-size: calc(14px * var(--text-scale));
+  letter-spacing: 0.03em;
+  color: var(--gold-light);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+/* Wybór poziomu na ekranie powitalnym */
+.welcome-levels {
+  display: flex;
+  gap: 10px;
+  margin-top: 26px;
+}
+.level-btn {
+  flex: 1;
+  min-height: 56px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: calc(20px * var(--text-scale));
+  font-weight: 600;
+  color: #2a1a06;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.35);
+  border: 2px solid rgba(122, 92, 30, 0.55);
+  border-radius: 12px;
+}
+.level-btn.active {
+  background: linear-gradient(180deg, #d8b968, #a9822f);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.3);
+  font-weight: 700;
+}
+.welcome-level-desc {
+  min-height: 3.9em;
+  margin: 10px 4px 0;
+  font-size: calc(15px * var(--text-scale));
+  line-height: 1.3;
+  opacity: 0.85;
+}
+.welcome-levels + .welcome-level-desc + .welcome-actions {
+  margin-top: 16px;
+}
+.scene-short .welcome-levels {
+  margin-top: 14px;
+}
+.scene-short .welcome-level-desc {
+  min-height: 0;
+  font-size: 13px;
+}

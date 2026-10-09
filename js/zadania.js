@@ -15,18 +15,14 @@ import { createWipeLayer } from "./dust.js";
 import { registerDropHandler, setPageTapHandler, computeStats } from "./world.js";
 import { playPaper, playDustGone, playEpochBonus, playChronologyStar, playWipe } from "./sound.js";
 import { escapeHtml, view } from "./util.js";
-import { historiaFor, OS_DZIEJOW, WEDROWKA_ZALUSKICH } from "./historia.js";
+import { historiaFor, WEDROWKA_ZALUSKICH } from "./historia.js";
+import { prosbyPoziomu, osDziejowPoziomu, czyZaawansowany } from "./poziomy.js";
 
 const Z = LAYOUT.zadania;
 
-const REQUESTS = [
-  { who: "pani Zofia", text: "Poproszę jakąkolwiek książkę Bolesława Prusa.", ok: (b) => b.author === "Bolesław Prus" },
-  { who: "pan Kazimierz", text: "Szukam dramatu z epoki romantyzmu — może być komedia.", ok: (b) => b.genre === "dramat" && b.epoch === "romantyzm" },
-  { who: "panna Jadwiga", text: "Potrzebuję zimowego tomu „Chłopów”.", ok: (b) => b.id === "chlopi-2" },
-  { who: "pani Helena", text: "Chciałabym poezję z dawnych wieków, sprzed rozbiorów.", ok: (b) => b.genre === "poezja" && b.epoch === "dawne" },
-  { who: "pan Stefan", text: "Szukam powieści o kupcu zakochanym w arystokratce.", ok: (b) => b.id === "lalka" },
-  { who: "pan Tadeusz", text: "Poproszę reportaż o pierwszych podróżach reportera, który woził ze sobą Herodota.", ok: (b) => b.id === "podroze-z-herodotem" },
-];
+// Prośby czytelników i medaliony Osi dziejów zależą od poziomu (js/poziomy.js) — ustawiane w initZadania.
+let REQUESTS = [];
+let OS_DZIEJOW = [];
 
 const INK_REQUEST = 3;
 const INK_REPAIR = 2;
@@ -205,16 +201,20 @@ function markDamagedBooks() {
 
 function fragmentFor(pageId) {
   const w = wiedzaFor(Z.pageBooks[pageId]);
-  if (!w || !w.cytat) return "";
+  if (!w || !w.cytat || String(w.cytat.tekst || "").trim().startsWith("[")) return ""; // cytat nieustalony — brak kartki z tekstem w nawiasie
   const lines = w.cytat.tekst.split("\n").slice(0, 3).join("\n");
   return lines.length > 220 ? lines.slice(0, 217) + "…" : lines;
 }
 
 function onPageTap(pageId) {
   const frag = fragmentFor(pageId);
+  // Poziom podstawowy: podpowiedź z autorem książki, z której wypadła kartka; zaawansowany: sam cytat.
+  const src = bookById(Z.pageBooks[pageId]);
+  const autor = !czyZaawansowany() && src ? `<p class="zk-autor">Autor: ${escapeHtml(src.author)}</p>` : "";
   showCard(
     "Luźna kartka",
     `<p class="zk-fragment">${escapeHtml(frag).replace(/\n/g, "<br>")}</p>` +
+      autor +
       `<p class="zk-rada">Ta kartka wypadła z jednej z książek w sali (uszkodzone mają naderwany róg). Rozpoznajesz fragment? Przeciągnij kartkę na tę książkę.</p>`
   );
 }
@@ -532,6 +532,8 @@ export function onCameraChangeZadania() {
 
 export function initZadania(worldApi) {
   api = worldApi;
+  REQUESTS = prosbyPoziomu();
+  OS_DZIEJOW = osDziejowPoziomu();
   zs();
   buildTray();
   buildSeals();

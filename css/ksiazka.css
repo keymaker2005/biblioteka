@@ -370,3 +370,12 @@
 .ksiazka-tlo-plakietka.hidden {
   display: none;
 }
+
+/* Wersja 1.0 — status lektury w podstawie programowej (drobny dopisek pod epoką) */
+.ksiazka-status {
+  margin: 2px 0 4px;
+  font-size: calc(14px * var(--text-scale));
+  line-height: 1.35;
+  font-style: italic;
+  opacity: 0.8;
+}
